@@ -36,8 +36,8 @@ void usage(){
 
 void initialize_thread_args(thread_args *args){
   
-  args->ip = const_cast<char *>("127.0.0.1");
-  args->port = const_cast<char *>("9000");
+  args->ip = NULL;
+  args->port = NULL;
   args->blast = 0;
   args->blast_rate = 0;
   args->udt_buff = 67108864;
@@ -68,10 +68,15 @@ int main(int argc, char *argv[]){
   thread_args args;
   initialize_thread_args(&args);
 
+
   if (operation == CLIENT){
     if (optind < argc){
-      if (!strcmp(argv[optind], "localhost"))
+      if (strcmp(argv[optind], "localhost")){
 	args.ip = strdup(argv[optind++]);
+      } else {
+	args.ip = strdup("127.0.0.1");
+	optind++;
+      }
 
     } else {
       cerr << "error: Please specify server ip." << endl;
@@ -85,6 +90,9 @@ int main(int argc, char *argv[]){
     cerr << "error: Please specify port num." << endl;
     exit(1);
   }
+
+  printf("ip: %s\n", args.ip);
+  printf("port: %s\n", args.port);
 
   if (operation == SERVER){
     run_server(&args);
