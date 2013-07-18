@@ -1,7 +1,7 @@
 /*****************************************************************************
 Copyright 2013 Laboratory for Advanced Computing at the University of Chicago
 
-This file is part of udr/udt
+This file is part of udtcat
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -20,11 +20,16 @@ and limitations under the License.
 #include <math.h>
 #include <string.h>
 #include <getopt.h>
+#include <iostream>
 
 #include "udtcat.h"
-#include "udtcat_client.h"
 #include "udtcat_server.h"
+#include "udtcat_client.h"
 
+using std::cerr;
+using std::endl;
+
+enum {NONE, SERVER, CLIENT};
 
 void usage(){
   fprintf(stderr, "usage: udtcat [udtcat options] [server ip] port\n");
@@ -33,8 +38,8 @@ void usage(){
 
 void initialize_thread_args(thread_args *args){
   
-  args->ip = "127.0.0.1";
-  args->port = "9000";
+  args->ip = const_cast<char *>("127.0.0.1");
+  args->port = const_cast<char *>("9000");
   args->blast = 0;
   args->blast_rate = 0;
   args->udt_buff = 67108864;
@@ -43,19 +48,11 @@ void initialize_thread_args(thread_args *args){
   
 }
 
-void err_msg(char* err){
-  fprintf(stderr, "error: %s\n", err);
-  usage();
-}
-
 
 int main(int argc, char *argv[]){
-
   
   int opt;
   int operation = CLIENT;
-  char* port = NULL;
-  char* ip = NULL;
 
   while ((opt = getopt (argc, argv, "l")) != -1){
     switch (opt){
@@ -74,11 +71,11 @@ int main(int argc, char *argv[]){
 
   if (operation == CLIENT){
     if (optind < argc){
-      if (strcmp(argv[optind], "localhost"))
+      if (!strcmp(argv[optind], "localhost"))
 	args.ip = strdup(argv[optind++]);
 
     } else {
-      err_msg("Please specify server ip.");
+      cerr << "error: Please specify server ip." << endl;
       exit(1);
     }
   }
@@ -86,15 +83,9 @@ int main(int argc, char *argv[]){
   if (optind < argc){
     args.port = strdup(argv[optind++]);
   } else {
-    err_msg("Please specify port num.");
+    cerr << "error: Please specify port num." << endl;
     exit(1);
   }
-
-  // if (argc-optind){
-  //   fprintf(stderr, "Unknown argument: %s\n", argv[optind]);
-  //   usage();
-  // }
-
 
   if (operation == SERVER){
     run_server(&args);
@@ -104,7 +95,7 @@ int main(int argc, char *argv[]){
 
 
   } else {
-    err_msg("Operation type not known");
+    cerr << "Operation type not known" << endl;
     
   }
 
