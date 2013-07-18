@@ -29,8 +29,6 @@ and limitations under the License.
 using std::cerr;
 using std::endl;
 
-enum {NONE, SERVER, CLIENT};
-
 void usage(){
   fprintf(stderr, "usage: udtcat [udtcat options] [server ip] port\n");
   exit(1);
@@ -52,6 +50,7 @@ void initialize_thread_args(thread_args *args){
 int main(int argc, char *argv[]){
   
   int opt;
+  enum {NONE, SERVER, CLIENT} op_t;
   int operation = CLIENT;
 
   while ((opt = getopt (argc, argv, "l")) != -1){

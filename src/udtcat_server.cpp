@@ -1,7 +1,7 @@
 /*****************************************************************************
 Copyright 2013 Laboratory for Advanced Computing at the University of Chicago
 
-This file is part of udr/udt
+This file is part of udtcat
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -23,9 +23,7 @@ and limitations under the License.
 #include <iostream>
 #include <udt.h>
 
-
 #include "udtcat.h"
-#include "udtcat_threads.h"
 
 using std::cerr;
 using std::endl;
@@ -38,19 +36,8 @@ int buffer_size;
 
 int run_server(thread_args *args){
 
-
-  // if (argc != 6) {
-
-                         // 0          1           2                 3
-  //   cerr << "usage: appserver server_port use_blast(0 or 1) udt_recvbuff "
-  //     "udp_recvbuff mss" << endl;
-  //   return 1;
-  // }
-
-  char *ip = args->ip; 
   char *port = args->port;
   int blast = args->blast;
-  int blast_rate = args->blast_rate;
   int udt_buff = args->udt_buff;
   int udp_buff = args->udp_buff; // 67108864;
   int mss = args->mss;
@@ -94,7 +81,7 @@ int run_server(thread_args *args){
 
   freeaddrinfo(res);
 
-  cerr << "server is ready at port: " << service << endl;
+  // cerr << "server is ready at port: " << service << endl;
 
   if (UDT::ERROR == UDT::listen(serv, 10))
     {
@@ -121,7 +108,7 @@ int run_server(thread_args *args){
 		sizeof(clienthost), clientservice, sizeof(clientservice),
 		NI_NUMERICHOST|NI_NUMERICSERV);
 
-    cerr << "new connection: " << clienthost << ":" << clientservice << endl;
+    // cerr << "new connection: " << clienthost << ":" << clientservice << endl;
 
     pthread_t rcvthread;
     pthread_t sendthread;
@@ -129,6 +116,7 @@ int run_server(thread_args *args){
     pthread_create(&sendthread, NULL, senddata, new UDTSOCKET(recver));
     pthread_detach(rcvthread);
     pthread_detach(sendthread);
+    
   }
 
   UDT::close(serv);

@@ -1,7 +1,7 @@
 /*****************************************************************************
 Copyright 2013 Laboratory for Advanced Computing at the University of Chicago
 
-This file is part of .
+This file is part of udtcat.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -21,69 +21,77 @@ and limitations under the License.
 #include <netdb.h>
 #include <iostream>
 #include <udt.h>
+
 #include "udtcat_threads.h"
+
+const int ECONNLOST = 2001;
 
 using std::cerr;
 using std::endl;
 
 void* recvdata(void* usocket)
 {
-    UDTSOCKET recver = *(UDTSOCKET*)usocket;
-    delete (UDTSOCKET*)usocket;
+  UDTSOCKET recver = *(UDTSOCKET*)usocket;
+  delete (UDTSOCKET*)usocket;
 
-    char* data;
-    int size = BUF_SIZE;
-    data = new char[size];
+  char* data;
+  int size = BUF_SIZE;
+  data = new char[size];
 
-    while (true) {
-        int rs;
-        if (UDT::ERROR == (rs = UDT::recv(recver, data, size, 0))) {
-            cerr << "recv:" << UDT::getlasterror().getErrorMessage() << endl;
-            break;
-        }
-
-        write(fileno(stdout), data, rs);
+  while (true) {
+    int rs;
+    if (UDT::ERROR == (rs = UDT::recv(recver, data, size, 0))) {
+      if (UDT::getlasterror().getErrorCode() == ECONNLOST){
+	exit(0);
+      } else {
+	cerr << "recv:" << UDT::getlasterror().getErrorMessage() << endl;
+      }
+      exit(0);
+      break;
     }
 
-    delete [] data;
+    write(fileno(stdout), data, rs);
+  }
 
-    UDT::close(recver);
+  delete [] data;
 
-    return NULL;
+  UDT::close(recver);
+
+  return NULL;
 }
 
 
 void* senddata(void* usocket)
 {
-    UDTSOCKET client = *(UDTSOCKET*)usocket;
-    delete (UDTSOCKET*)usocket;
+  UDTSOCKET client = *(UDTSOCKET*)usocket;
+  delete (UDTSOCKET*)usocket;
 
-    char* data = NULL;
-    size_t buf_size = BUF_SIZE;
-    int size;
+  char* data = NULL;
+  size_t buf_size = BUF_SIZE;
+  int size;
 
-    while ((size = getline(&data, &buf_size, stdin)) > 0) {
-       int ssize = 0;
-       int ss;
+  while ((size = getline(&data, &buf_size, stdin)) > 0) {
+    int ssize = 0;
+    int ss;
 
-       while (ssize < size) {
-          if (UDT::ERROR == (ss = UDT::send(client, data + ssize, size - ssize, 0)))
-          {
-             cerr << "send:" << UDT::getlasterror().getErrorMessage() << endl;
-             break;
-          }
+    while (ssize < size) {
+      if (UDT::ERROR == (ss = UDT::send(client, data + ssize, size - ssize, 0)))
+	{
+	  cerr << "send:" << UDT::getlasterror().getErrorMessage() << endl;
+	  break;
+	}
 
-          ssize += ss;
-       }
-
-       if (ssize < size)
-           break;
+      ssize += ss;
     }
 
-    free(data);
+    if (ssize < size)
+      break;
+  }
 
-    UDT::close(client);
+  free(data);
 
-    return NULL;
+  UDT::close(client);
+
+  return NULL;
 }
 

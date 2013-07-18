@@ -39,7 +39,7 @@ endif
 DIR = $(shell pwd)
 
 APP = udtcat  #test
-
+APPOUT = uc
 
 all: $(APP)
 
@@ -47,10 +47,10 @@ all: $(APP)
 	$(C++) $(CCFLAGS) $< -c
 
 udtcat: udtcat.o udtcat_threads.o udtcat_server.o udtcat_client.o
-	$(C++) $^ -o $@ $(LDFLAGS)
+	$(C++) $^ -o $(APPOUT) $(LDFLAGS)
 
 clean:
-	rm -f *.o $(APP)
+	rm -f *.o $(APPOUT) 
 
 install:
 	export PATH=$(DIR):$$PATH

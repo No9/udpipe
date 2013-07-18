@@ -1,7 +1,7 @@
 /*****************************************************************************
 Copyright 2013 Laboratory for Advanced Computing at the University of Chicago
 
-This file is part of .
+This file is part of udtcat.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -23,7 +23,7 @@ and limitations under the License.
 #include <iostream>
 #include <udt.h>
 #include <stdio.h>
-#include "udtcat_threads.h"
+
 #include "udtcat.h"
 
 
@@ -41,9 +41,6 @@ int run_client(thread_args *args)
   int udp_buff = args->udp_buff; // 67108864;
   int mss = args->mss;
     
-  //  argv[0]    argv[1]   argv[2]       argv[3]        argv[4]       argv[5]     argv[6]
-  // appclient server_ip server_port use_blast(0 or 1) udt_sendbuff udp_sendbuff   mss
-
   UDT::startup();
 
   struct addrinfo hints, *local, *peer;
@@ -109,6 +106,7 @@ int run_client(thread_args *args)
   char* data = NULL;
 
   while ((size = getline(&data, &buf_size, stdin)) > 0) {
+
     int ssize = 0;
     int ss;
     while (ssize < size) {
@@ -123,6 +121,8 @@ int run_client(thread_args *args)
     if (ssize < size)
       break;
   }
+
+
 
   UDT::close(client);
 
