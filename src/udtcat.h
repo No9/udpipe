@@ -26,10 +26,7 @@ and limitations under the License.
 #include <stdio.h>
 
 #include "cc.h"
-
-
-enum {NONE, SERVER, CLIENT} op_t;
-
+#include "udtcat_threads.h"
 
 typedef struct thread_args{
   char *ip;
