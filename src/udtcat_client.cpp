@@ -30,7 +30,7 @@ and limitations under the License.
 using std::cerr;
 using std::endl;
 
-void prii(long i){fprintf(stderr, "debug: %d\n", i);}
+void prii(int i){fprintf(stderr, "debug: %d\n", i);}
 void pris(char*s){fprintf(stderr, "debug: %s\n", s);}
 
 int send_buf(UDTSOCKET client, char** buf, int *len, int flags){
@@ -119,23 +119,22 @@ int run_client(thread_args *args)
 
   int size;
   char *data = (char*)malloc(udt_buff*sizeof(char));
-  char *cur = data;
+  size_t buf_size = udt_buff;
 
-  while ( (*cur = getchar()) != EOF){
+
+  while (1){
     
-    if (size == udt_buff) {
+    size = read(0, data, sizeof(data));
+    
+    if (size > 0){
+      prii(size);
       send_buf(client, &data, &size, 0);
-      cur = data;
+    }
+    if (size == 0){
+      break;
 
     }
-    cur ++;
-    size ++;
 
-  }
-
-  if (size > 0){
-    *cur = NULL;
-    send_buf(client, &data, &size, 0);
 
   }
 
