@@ -118,8 +118,8 @@ int run_client(thread_args *args)
   }
 
   int size;
-  unsigned char *data = (char*)malloc(udt_buff*sizeof(char));
-  usigned char *cur = data;
+  char *data = (char*)malloc(udt_buff*sizeof(char));
+  char *cur = data;
 
   while ( (*cur = getchar()) != EOF){
     
@@ -127,14 +127,12 @@ int run_client(thread_args *args)
       send_buf(client, &data, &size, 0);
       cur = data;
 
-    } else {
-      cur ++;
-      size ++;
-
     }
+    cur ++;
+    size ++;
 
   }
-  fprintf(stderr, "END OF FILE");
+
   if (size > 0){
     *cur = NULL;
     send_buf(client, &data, &size, 0);
