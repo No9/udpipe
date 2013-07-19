@@ -91,6 +91,9 @@ int main(int argc, char *argv[]){
     exit(1);
   }
 
+  printf("ip: %s\n", args.ip);
+  printf("port: %s\n", args.port);
+
   if (operation == SERVER){
     run_server(&args);
 
