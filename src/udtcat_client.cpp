@@ -30,6 +30,23 @@ and limitations under the License.
 using std::cerr;
 using std::endl;
 
+void prii(long i){fprintf(stderr, "debug: %d\n", i);}
+void pris(char*s){fprintf(stderr, "debug: %s\n", s);}
+
+int send_buf(UDTSOCKET client, char** buf, int *len, int flags){
+
+  int ss = UDT::send(client, *buf, *len, flags);
+  
+  if (UDT::ERROR == ss) {
+    cerr << "send:" << UDT::getlasterror().getErrorMessage() << endl;
+    exit(1);
+  }
+  *buf = NULL;
+  *len -= ss;
+  return 0;
+
+}
+
 int run_client(thread_args *args)
 {
 
@@ -59,7 +76,6 @@ int run_client(thread_args *args)
 
 
   UDTSOCKET client = UDT::socket(local->ai_family, local->ai_socktype, local->ai_protocol);
-
 
 
 
@@ -101,27 +117,27 @@ int run_client(thread_args *args)
       cchandle->setRate(blast_rate);
   }
 
-  size_t buf_size = udt_buff;
   int size;
-  char* data = NULL;
+  char *data = (char*)malloc(udt_buff*sizeof(char));
+  char *cur = data;
 
-  while ((size = getline(&data, &buf_size, stdin)) > 0) {
+  while ( (*cur = getchar()) != EOF){
+    
+    if (size == udt_buff) {
+      send_buf(client, &data, &size, 0);
+      cur = data;
 
-    int ssize = 0;
-    int ss;
-    while (ssize < size) {
-      if (UDT::ERROR == (ss = UDT::send(client, data + ssize, size - ssize, 0))) {
-	cerr << "send:" << UDT::getlasterror().getErrorMessage() << endl;
-	break;
-      }
-
-      ssize += ss;
     }
+    cur ++;
+    size ++;
 
-    if (ssize < size)
-      break;
   }
 
+  if (size > 0){
+    *cur = NULL;
+    send_buf(client, &data, &size, 0);
+
+  }
 
 
   UDT::close(client);
