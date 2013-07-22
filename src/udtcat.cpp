@@ -40,8 +40,8 @@ void initialize_thread_args(thread_args *args){
   args->port = NULL;
   args->blast = 0;
   args->blast_rate = 0;
-  args->udt_buff = 67108864;
-  args->udp_buff = 67108864;
+  args->udt_buff = BUFF_SIZE;
+  args->udp_buff = BUFF_SIZE;
   args->mss = 1300;
   
 }
@@ -91,8 +91,8 @@ int main(int argc, char *argv[]){
     exit(1);
   }
 
-  printf("ip: %s\n", args.ip);
-  printf("port: %s\n", args.port);
+  // printf("ip: %s\n", args.ip);
+  // printf("port: %s\n", args.port);
 
   if (operation == SERVER){
     run_server(&args);

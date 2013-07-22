@@ -23,6 +23,7 @@ and limitations under the License.
 #include <iostream>
 #include <udt.h>
 #include <stdio.h>
+#include <errno.h>
 
 #include "udtcat.h"
 
@@ -33,17 +34,23 @@ using std::endl;
 void prii(int i){fprintf(stderr, "debug: %d\n", i);}
 void pris(char*s){fprintf(stderr, "debug: %s\n", s);}
 
-int send_buf(UDTSOCKET client, char** buf, int *len, int flags){
 
-  int ss = UDT::send(client, *buf, *len, flags);
+void uc_err(char*s){
+  fprintf(stderr, "error: %s\n", s);
+  exit(1);
+}
+
+
+int send_buf(UDTSOCKET client, char* buf, int len, int flags){
+
+  int ss = UDT::send(client, buf, len, flags);
   
   if (UDT::ERROR == ss) {
     cerr << "send:" << UDT::getlasterror().getErrorMessage() << endl;
     exit(1);
   }
-  *buf = NULL;
-  *len -= ss;
-  return 0;
+
+  return ss;
 
 }
 
@@ -117,30 +124,31 @@ int run_client(thread_args *args)
       cchandle->setRate(blast_rate);
   }
 
-  int size;
-  char *data = (char*)malloc(udt_buff*sizeof(char));
-  size_t buf_size = udt_buff;
-
+  size_t size;
+  char *data;
+  if (!(data=(char*)malloc(udt_buff*sizeof(char))))
+    uc_err("Unable to allocate buffer");
 
   while (1){
-    
-    size = read(0, data, sizeof(data));
-    
-    if (size > 0){
-      prii(size);
-      send_buf(client, &data, &size, 0);
-    }
+
+    size = read(STDIN_FILENO, data, udt_buff);
+
+    if (size < 0)
+      uc_err(strerror(errno));
+
     if (size == 0){
+      pris("No more to read");
       break;
-
     }
-
+    
+    if (size > 0)
+      pris("Sending buffer\n");
+      send_buf(client, data, size, 0);
 
   }
 
-
   UDT::close(client);
-
+  
   free(data);
 
   UDT::cleanup();

@@ -8,7 +8,7 @@ ifndef arch
    arch = IA32
 endif
 
-CCFLAGS = -Wall -D$(os) -I../udt/src -finline-functions -g
+CCFLAGS = -Wall -D$(os) -I../udt/src -finline-functions -g -D_LARGE_FILE_SOURCE=1
 
 ifeq ($(arch), IA32)
    CCFLAGS += -DIA32 #-mcpu=pentiumpro -march=pentiumpro -mmmx -msse

@@ -28,14 +28,16 @@ and limitations under the License.
 #include "cc.h"
 #include "udtcat_threads.h"
 
+#define BUFF_SIZE 1073741824
+/* #define BUFF_SIZE 128 */
 
 typedef struct thread_args{
   char *ip;
   char *port;
   int blast;
   int blast_rate;
-  int udt_buff;
-  int udp_buff;
+  size_t udt_buff;
+  size_t udp_buff;
   int mss;
   
 } thread_args;
