@@ -24,6 +24,7 @@ and limitations under the License.
 #include <udt.h>
 #include <stdio.h>
 #include <errno.h>
+#include <time.h>
 
 #include "udtcat.h"
 
@@ -41,10 +42,24 @@ void uc_err(char*s){
 }
 
 
-int send_buf(UDTSOCKET client, char* buf, int len, int flags){
+int send_buf(UDTSOCKET client, char* buf, int size, int flags){
 
-  int ss = UDT::send(client, buf, len, flags);
-  
+  int ssize = 0;
+  int ss;
+  while (ssize < size) {
+    if (UDT::ERROR == (ss = UDT::send(client, buf + ssize, size - ssize, 0))) {
+      cerr << "send:" << UDT::getlasterror().getErrorMessage() << endl;
+      break;
+    }
+
+    ssize += ss;
+  }
+
+  if (ssize < size)
+    pris("Did not send complete buffer");
+
+
+
   if (UDT::ERROR == ss) {
     cerr << "send:" << UDT::getlasterror().getErrorMessage() << endl;
     exit(1);
@@ -129,10 +144,15 @@ int run_client(thread_args *args)
   if (!(data=(char*)malloc(udt_buff*sizeof(char))))
     uc_err("Unable to allocate buffer");
 
+  long total_sent = 0;
+  // clock_t start, stop;
+
   while (1){
 
+    // start = clock();
     size = read(STDIN_FILENO, data, udt_buff);
 
+    total_sent += size;
     if (size < 0)
       uc_err(strerror(errno));
 
@@ -141,9 +161,15 @@ int run_client(thread_args *args)
       break;
     }
     
-    if (size > 0)
-      pris("Sending buffer\n");
+    if (size > 0){
+      fprintf(stderr, "Sending buffer, sent: %.3f GB\n", total_sent*9.31323e-10);
       send_buf(client, data, size, 0);
+    }
+    
+    // stop = clock();
+    // double diff = ((double)stop - (double)start) * 1E-4;
+    // if (diff)
+    //   fprintf(stderr, "rate: %e\n",size/diff);   
 
   }
 
