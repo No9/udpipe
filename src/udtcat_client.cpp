@@ -27,7 +27,7 @@ and limitations under the License.
 #include <time.h>
 
 #include "udtcat.h"
-
+#include "udtcat_client.h"
 
 using std::cerr;
 using std::endl;
@@ -35,12 +35,10 @@ using std::endl;
 void prii(int i){fprintf(stderr, "debug: %d\n", i);}
 void pris(char*s){fprintf(stderr, "debug: %s\n", s);}
 
-
 void uc_err(char*s){
   fprintf(stderr, "error: %s\n", s);
   exit(1);
 }
-
 
 int send_buf(UDTSOCKET client, char* buf, int size, int flags){
 
@@ -58,8 +56,6 @@ int send_buf(UDTSOCKET client, char* buf, int size, int flags){
   if (ssize < size)
     pris("Did not send complete buffer");
 
-
-
   if (UDT::ERROR == ss) {
     cerr << "send:" << UDT::getlasterror().getErrorMessage() << endl;
     exit(1);
@@ -69,8 +65,56 @@ int send_buf(UDTSOCKET client, char* buf, int size, int flags){
 
 }
 
-int run_client(thread_args *args)
-{
+
+
+
+void* send_buf_threaded(void*_args){
+  
+  pris("Converting thread args");
+
+  send_buf_args *args = (send_buf_args*) _args;
+  args->idle = 0;
+  
+
+  UDTSOCKET client = args->client;
+
+  char* buf = args->buf;
+  int size = args->size;
+  int flags = args->flags;
+  
+  int ssize = 0;
+  int ss;
+  int* ret = (int*)malloc(sizeof(int));
+
+  pris("Sending buffer");
+  while (ssize < size) {
+    if (UDT::ERROR == (ss = UDT::send(client, buf + ssize, size - ssize, 0))) {
+      cerr << "send:" << UDT::getlasterror().getErrorMessage() << endl;
+      break;
+    }
+
+    ssize += ss;
+  }
+
+  if (ssize < size)
+    pris("Did not send complete buffer");
+
+  pris("Buffer sent");
+
+  if (UDT::ERROR == ss) {
+    cerr << "send:" << UDT::getlasterror().getErrorMessage() << endl;
+    exit(1);
+  }
+  *ret = ss;
+  free(args->buf);
+  args->idle = 1;
+
+  return ret;
+
+}
+
+
+int run_client(thread_args *args){
 
   char *ip = args->ip; 
   char *port = args->port;
@@ -79,7 +123,7 @@ int run_client(thread_args *args)
   int udt_buff = args->udt_buff;
   int udp_buff = args->udp_buff; // 67108864;
   int mss = args->mss;
-    
+  
   UDT::startup();
 
   struct addrinfo hints, *local, *peer;
@@ -90,15 +134,15 @@ int run_client(thread_args *args)
   hints.ai_family = AF_INET;
   hints.ai_socktype = SOCK_STREAM;
 
-  if (0 != getaddrinfo(NULL, "9000", &hints, &local))
-    {
-      cerr << "incorrect network address.\n" << endl;
-      return 1;
-    }
+  
+
+  if (0 != getaddrinfo(NULL, "9000", &hints, &local)){
+    cerr << "incorrect network address.\n" << endl;
+    return 1;
+  }
 
 
   UDTSOCKET client = UDT::socket(local->ai_family, local->ai_socktype, local->ai_protocol);
-
 
 
   // UDT Options
@@ -140,43 +184,60 @@ int run_client(thread_args *args)
   }
 
   size_t size;
-  char *data;
-  if (!(data=(char*)malloc(udt_buff*sizeof(char))))
-    uc_err("Unable to allocate buffer");
+
 
   long total_sent = 0;
-  // clock_t start, stop;
+
+  int t = 0;
+  pthread_t buf_threads[N_THREADS];
+  send_buf_args buf_args[N_THREADS];
 
   while (1){
 
-    // start = clock();
+    char *data;
+    if (!(data=(char*)malloc(udt_buff*sizeof(char))))
+      uc_err("Unable to allocate buffer");
+
     size = read(STDIN_FILENO, data, udt_buff);
+    printf("Read in size %d\n", size);
 
     total_sent += size;
-    if (size < 0)
+    if (size < 0){
       uc_err(strerror(errno));
 
-    if (size == 0){
-      pris("No more to read");
+    } else if (size == 0) {
       break;
-    }
     
-    if (size > 0){
-      fprintf(stderr, "Sending buffer, sent: %.3f GB\n", total_sent*9.31323e-10);
-      send_buf(client, data, size, 0);
+    } else {
+      // send_buf(client, data, size, 0);
+
+      if (buf_args[t].idle){
+	
+      	buf_args[t].idle = 0;
+      	buf_args[t].client = client;
+      	buf_args[t].buf = data;
+      	buf_args[t].size = size;
+      	buf_args[t].flags = 0;
+
+      	void*stat;
+      	pthread_create(&buf_threads[t], NULL, send_buf_threaded, &buf_args[t]);
+      	pthread_join(buf_threads[t], &stat);
+
+      	fprintf(stderr, "debug: Spawned thread %d\n", t);
+	
+      	t++;
+      	if (t== N_THREADS)
+      	  t = 0;
+
+      }
+
+
     }
-    
-    // stop = clock();
-    // double diff = ((double)stop - (double)start) * 1E-4;
-    // if (diff)
-    //   fprintf(stderr, "rate: %e\n",size/diff);   
 
   }
 
   UDT::close(client);
   
-  free(data);
-
   UDT::cleanup();
 
   return 0;

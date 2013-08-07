@@ -28,8 +28,10 @@ and limitations under the License.
 #include "cc.h"
 #include "udtcat_threads.h"
 
+#define N_THREADS 4
+
 #define BUFF_SIZE 67108864
-/* #define BUFF_SIZE 128 */
+#define BUFF_SIZE 134217728
 
 typedef struct thread_args{
   char *ip;

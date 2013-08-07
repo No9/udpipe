@@ -23,4 +23,14 @@ and limitations under the License.
 
 
 
+typedef struct send_buf_args{
+  UDTSOCKET client; 
+  char* buf;
+  int size;
+  int flags;
+  int idle;
+} send_buf_args;
+
+
+
 int run_client(thread_args *args);
