@@ -36,93 +36,100 @@ int buffer_size;
 
 int run_server(thread_args *args){
 
-  char *port = args->port;
-  int blast = args->blast;
-  int udt_buff = args->udt_buff;
-  int udp_buff = args->udp_buff; // 67108864;
-  int mss = args->mss;
+    char *port = args->port;
+    int blast = args->blast;
+    int udt_buff = args->udt_buff;
+    int udp_buff = args->udp_buff; // 67108864;
+    int mss = args->mss;
+    int t;
 
-  UDT::startup();
+    UDT::startup();
 
-  addrinfo hints;
-  addrinfo* res;
+    addrinfo hints;
+    addrinfo* res;
 
-  memset(&hints, 0, sizeof(struct addrinfo));
+    memset(&hints, 0, sizeof(struct addrinfo));
 
-  hints.ai_flags = AI_PASSIVE;
-  hints.ai_family = AF_INET;
-  hints.ai_socktype = SOCK_STREAM;
+    hints.ai_flags = AI_PASSIVE;
+    hints.ai_family = AF_INET;
+    hints.ai_socktype = SOCK_STREAM;
 
-  string service(port);
+    string service(port);
 
-
-  if (0 != getaddrinfo(NULL, service.c_str(), &hints, &res)) {
-    cerr << "illegal port number or port is busy.\n" << endl;
-    return 1;
-  }
-
-  UDTSOCKET serv = UDT::socket(res->ai_family, res->ai_socktype, res->ai_protocol);
-
-  buffer_size = udt_buff;
-
-  // UDT Options
-  if (blast)
-    UDT::setsockopt(serv, 0, UDT_CC, new CCCFactory<CUDPBlast>, sizeof(CCCFactory<CUDPBlast>));
-
-  UDT::setsockopt(serv, 0, UDT_MSS, &mss, sizeof(int));
-  UDT::setsockopt(serv, 0, UDT_RCVBUF, &udt_buff, sizeof(int));
-  UDT::setsockopt(serv, 0, UDP_RCVBUF, &udp_buff, sizeof(int));
-
-
-  if (UDT::ERROR == UDT::bind(serv, res->ai_addr, res->ai_addrlen)) {
-    cerr << "bind: " << UDT::getlasterror().getErrorMessage() << endl;
-    return 1;
-  }
-
-  freeaddrinfo(res);
-
-  // cerr << "server is ready at port: " << service << endl;
-
-  if (UDT::ERROR == UDT::listen(serv, 10))
-    {
-      cerr << "listen: " << UDT::getlasterror().getErrorMessage() << endl;
-      return 1;
+    if (0 != getaddrinfo(NULL, service.c_str(), &hints, &res)) {
+	cerr << "illegal port number or port is busy.\n" << endl;
+	return 1;
     }
 
-  sockaddr_storage clientaddr;
-  int addrlen = sizeof(clientaddr);
+    buffer_size = udt_buff;
 
-  UDTSOCKET recver;
+    UDTSOCKET serv;
 
-  while (true) {
-    if (UDT::INVALID_SOCK == (recver = UDT::accept(serv,
-						   (sockaddr*)&clientaddr, &addrlen))) {
+    serv = UDT::socket(res->ai_family, res->ai_socktype, res->ai_protocol);
 
-      cerr << "accept: " << UDT::getlasterror().getErrorMessage() << endl;
-      return 1;
+    // UDT Options
+    if (blast)
+	UDT::setsockopt(serv, 0, UDT_CC, new CCCFactory<CUDPBlast>, sizeof(CCCFactory<CUDPBlast>));
+
+    UDT::setsockopt(serv, 0, UDT_MSS, &mss, sizeof(int));
+    UDT::setsockopt(serv, 0, UDT_RCVBUF, &udt_buff, sizeof(int));
+    UDT::setsockopt(serv, 0, UDP_RCVBUF, &udp_buff, sizeof(int));
+
+
+    if (UDT::ERROR == UDT::bind(serv, res->ai_addr, res->ai_addrlen)) {
+	cerr << "bind: " << UDT::getlasterror().getErrorMessage() << endl;
+	return 1;
     }
 
-    char clienthost[NI_MAXHOST];
-    char clientservice[NI_MAXSERV];
-    getnameinfo((sockaddr *)&clientaddr, addrlen, clienthost,
-		sizeof(clienthost), clientservice, sizeof(clientservice),
-		NI_NUMERICHOST|NI_NUMERICSERV);
+    if (UDT::ERROR == UDT::listen(serv, 10)){
+	cerr << "listen: " << UDT::getlasterror().getErrorMessage() << endl;
+	return 1;
+    }
 
-    // cerr << "new connection: " << clienthost << ":" << clientservice << endl;
-
-    pthread_t rcvthread;
-    pthread_t sendthread;
-    pthread_create(&rcvthread, NULL, recvdata, new UDTSOCKET(recver));
-    pthread_create(&sendthread, NULL, senddata, new UDTSOCKET(recver));
-    pthread_detach(rcvthread);
-    pthread_detach(sendthread);
+    sockaddr_storage clientaddr;
+    int addrlen = sizeof(clientaddr);
     
-  }
+    UDTSOCKET recver[N_THREADS];
+    pthread_t rcvthread[N_THREADS];
+    pthread_t sendthread[N_THREADS];
+    int i;
 
-  UDT::close(serv);
+    t = 0;
+    
+    void*stat;
 
-  UDT::cleanup();
+    while (t < N_THREADS) {
 
-  return 0;
+	if (UDT::INVALID_SOCK == (recver[t] = UDT::accept(serv,
+							  (sockaddr*)&clientaddr, &addrlen))) {
+
+	    cerr << "accept: " << UDT::getlasterror().getErrorMessage() << endl;
+	    return 1;
+	}
+
+	char clienthost[NI_MAXHOST];
+	char clientservice[NI_MAXSERV];
+	getnameinfo((sockaddr *)&clientaddr, addrlen, clienthost,
+		    sizeof(clienthost), clientservice, sizeof(clientservice),
+		    NI_NUMERICHOST|NI_NUMERICSERV);
+
+	pthread_create(&rcvthread[t], NULL, recvdata, new UDTSOCKET(recver[t]));
+	// pthread_create(&sendthread[t], NULL, senddata, new UDTSOCKET(recver[t]));
+	// pthread_detach(rcvthread);
+	// pthread_detach(sendthread);
+
+	t++;
+    }
+
+
+    while(1){
+	sleep(1);
+    }
+
+    // UDT::close(serv);
+
+    UDT::cleanup();
+    freeaddrinfo(res);
+    return 0;
 }
 

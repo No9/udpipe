@@ -30,81 +30,75 @@ using std::cerr;
 using std::endl;
 
 void usage(){
-  fprintf(stderr, "usage: udtcat [udtcat options] [server ip] port\n");
-  exit(1);
+    fprintf(stderr, "usage: udtcat [udtcat options] [server ip] port\n");
+    exit(1);
 }
 
 void initialize_thread_args(thread_args *args){
   
-  args->ip = NULL;
-  args->port = NULL;
-  args->blast = 0;
-  args->blast_rate = 0;
-  args->udt_buff = BUFF_SIZE;
-  args->udp_buff = BUFF_SIZE;
-  args->mss = 1300;
+    args->ip = NULL;
+    args->port = NULL;
+    args->blast = 0;
+    args->blast_rate = 1000;
+    args->udt_buff = BUFF_SIZE;
+    args->udp_buff = BUFF_SIZE;
+    args->mss = 1300;
   
 }
 
-
 int main(int argc, char *argv[]){
   
-  int opt;
-  enum {NONE, SERVER, CLIENT} op_t;
-  int operation = CLIENT;
+    int opt;
+    enum {NONE, SERVER, CLIENT};
+    int operation = CLIENT;
 
-  while ((opt = getopt (argc, argv, "l")) != -1){
-    switch (opt){
-    case 'l':
-      operation = SERVER;
-      break;
-    default:
-      fprintf(stderr, "Unknown command line arg. -h for help.\n");
-      usage();
-      exit(1);
+    while ((opt = getopt (argc, argv, "l")) != -1){
+	switch (opt){
+	case 'l':
+	    operation = SERVER;
+	    break;
+	default:
+	    fprintf(stderr, "Unknown command line arg. -h for help.\n");
+	    usage();
+	    exit(1);
+	}
     }
-  }
   
-  thread_args args;
-  initialize_thread_args(&args);
+    thread_args args;
+    initialize_thread_args(&args);
 
+    if (operation == CLIENT){
+	if (optind < argc){
+	    if (strcmp(argv[optind], "localhost")){
+		args.ip = strdup(argv[optind++]);
+	    } else {
+		args.ip = strdup("127.0.0.1");
+		optind++;
+	    }
 
-  if (operation == CLIENT){
+	} else {
+	    cerr << "error: Please specify server ip." << endl;
+	    exit(1);
+	}
+    }
+
     if (optind < argc){
-      if (strcmp(argv[optind], "localhost")){
-	args.ip = strdup(argv[optind++]);
-      } else {
-	args.ip = strdup("127.0.0.1");
-	optind++;
-      }
+	args.port = strdup(argv[optind++]);
+    } else {
+	cerr << "error: Please specify port num." << endl;
+	exit(1);
+    }
+
+    if (operation == SERVER){
+	run_server(&args);
+
+    } else if (operation == CLIENT){
+	run_client(&args);
 
     } else {
-      cerr << "error: Please specify server ip." << endl;
-      exit(1);
-    }
-  }
-
-  if (optind < argc){
-    args.port = strdup(argv[optind++]);
-  } else {
-    cerr << "error: Please specify port num." << endl;
-    exit(1);
-  }
-
-  // printf("ip: %s\n", args.ip);
-  // printf("port: %s\n", args.port);
-
-  if (operation == SERVER){
-    run_server(&args);
-
-  } else if (operation == CLIENT){
-    run_client(&args);
-
-
-  } else {
-    cerr << "Operation type not known" << endl;
+	cerr << "Operation type not known" << endl;
     
-  }
+    }
 
   
 }

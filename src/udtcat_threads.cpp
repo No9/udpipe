@@ -22,76 +22,148 @@ and limitations under the License.
 #include <iostream>
 #include <udt.h>
 
+#include "udtcat.h"
 #include "udtcat_threads.h"
+
+#define prii(x) fprintf(stderr,"debug:%d\n",x)
+#define pris(x) fprintf(stderr,"debug: %s\n",x)
+#define uc_err(x) {fprintf(stderr,"error:%s\n",x);exit(1);}
+
 
 const int ECONNLOST = 2001;
 
 using std::cerr;
 using std::endl;
 
+int n_recv_threads = 0;
+int last_printed = -1;
+pthread_mutex_t lock;
+
 void* recvdata(void* usocket)
 {
-  UDTSOCKET recver = *(UDTSOCKET*)usocket;
-  delete (UDTSOCKET*)usocket;
+    
 
-  char* data;
-  int size = BUF_SIZE;
-  data = new char[size];
+    pthread_mutex_lock(&lock);
+    int thread_num = n_recv_threads++;
+    pthread_mutex_unlock(&lock);
+    fprintf(stderr, "New recv thread %d\n", thread_num);
+    
+    UDTSOCKET recver = *(UDTSOCKET*)usocket;
+    delete (UDTSOCKET*) usocket;
 
-  while (true) {
-    int rs;
-    if (UDT::ERROR == (rs = UDT::recv(recver, data, size, 0))) {
-      if (UDT::getlasterror().getErrorCode() == ECONNLOST){
-	exit(0);
-      } else {
-	cerr << "recv:" << UDT::getlasterror().getErrorMessage() << endl;
-      }
-      exit(0);
-      break;
+    char* data;
+    int size = BUFF_SIZE;
+    data = new char[size];
+
+    while (true) {
+	int rs;
+
+	if (UDT::ERROR == (rs = UDT::recv(recver, data, size, 0))) {
+	    if (UDT::getlasterror().getErrorCode() == ECONNLOST){
+		exit(0);
+	    } else {
+		cerr << "recv:" << UDT::getlasterror().getErrorMessage() << endl;
+	    }
+	    exit(0);
+	    break;
+	}
+	fprintf(stdout, "Here\n");
+
+	while (last_printed != thread_num-1);
+
+	pthread_mutex_lock(&lock);
+	if (thread_num == n_recv_threads-1)
+	    last_printed = -1;
+	else 
+	    last_printed = thread_num;
+	pthread_mutex_unlock(&lock);
+
+
+
+	write(fileno(stdout), data, rs);
+
     }
 
-    write(fileno(stdout), data, rs);
-  }
+    delete [] data;
 
-  delete [] data;
+    UDT::close(recver);
 
-  UDT::close(recver);
-
-  return NULL;
+    return NULL;
 }
 
 
 void* senddata(void* usocket)
 {
-  UDTSOCKET client = *(UDTSOCKET*)usocket;
-  delete (UDTSOCKET*)usocket;
 
-  char* data = NULL;
-  size_t buf_size = BUF_SIZE;
-  int size;
+    fprintf(stderr, "New send thread\n");
+    UDTSOCKET client = *(UDTSOCKET*)usocket;
+    delete (UDTSOCKET*)usocket;
 
-  while ((size = getline(&data, &buf_size, stdin)) > 0) {
+    char* data = NULL;
+    size_t buf_size = BUFF_SIZE;
+    int size;
+
+    while ((size = getline(&data, &buf_size, stdin)) > 0) {
+    	int ssize = 0;
+    	int ss;
+
+    	while (ssize < size) {
+    	    if (UDT::ERROR == (ss = UDT::send(client, data + ssize, size - ssize, 0)))
+    		{
+    		    cerr << "send:" << UDT::getlasterror().getErrorMessage() << endl;
+    		    break;
+    		}
+
+    	    ssize += ss;
+    	}
+
+    	if (ssize < size)
+    	    break;
+    }
+
+    free(data);
+
+    UDT::close(client);
+
+    return NULL;
+}
+
+
+void* send_buf_threaded(void*_args)
+{
+  
+    send_buf_args *args = (send_buf_args*) _args;
+    args->idle = 0;
+
+    UDTSOCKET client = args->client;
+
+    char* buf = args->buf;
+    int size = args->size;
+    int flags = args->flags;
+  
     int ssize = 0;
     int ss;
+    int* ret = (int*)malloc(sizeof(int));
 
     while (ssize < size) {
-      if (UDT::ERROR == (ss = UDT::send(client, data + ssize, size - ssize, 0)))
-	{
-	  cerr << "send:" << UDT::getlasterror().getErrorMessage() << endl;
-	  break;
+	if (UDT::ERROR == (ss = UDT::send(client, buf + ssize, size - ssize, 0))) {
+	    cerr << "send:" << UDT::getlasterror().getErrorMessage() << endl;
+	    break;
 	}
 
-      ssize += ss;
+	ssize += ss;
     }
 
     if (ssize < size)
-      break;
-  }
+	uc_err("Did not send complete buffer");
 
-  free(data);
+    if (UDT::ERROR == ss) {
+	cerr << "send:" << UDT::getlasterror().getErrorMessage() << endl;
+	exit(1);
+    }
+    *ret = ss;
+    args->idle = 1;
 
-  UDT::close(client);
+    return ret;
 
-  return NULL;
 }
-
