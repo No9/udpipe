@@ -17,7 +17,9 @@ and limitations under the License.
 *****************************************************************************/
 
 // this should be maxline size
-#define BUF_SIZE 100000
+/* #define BUF_SIZE 100000 */
+
+
 
 void* recvdata(void*);
 

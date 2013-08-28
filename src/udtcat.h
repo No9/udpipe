@@ -28,10 +28,19 @@ and limitations under the License.
 #include "cc.h"
 #include "udtcat_threads.h"
 
-#define N_THREADS 4
-
+#define N_THREADS 2
+/* #define BUFF_SIZE 67108864 */
 #define BUFF_SIZE 67108864
-#define BUFF_SIZE 134217728
+/* #define BUFF_SIZE 10 */
+
+typedef struct send_buf_args{
+  UDTSOCKET client; 
+  char* buf;
+  int size;
+  int flags;
+  int idle;
+} send_buf_args;
+
 
 typedef struct thread_args{
   char *ip;
@@ -43,3 +52,6 @@ typedef struct thread_args{
   int mss;
   
 } thread_args;
+
+
+void* send_buf_threaded(void*_args);
