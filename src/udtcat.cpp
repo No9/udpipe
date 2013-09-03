@@ -99,13 +99,9 @@ int main(int argc, char *argv[]){
 
     crypto enc(EVP_ENCRYPT, PASSPHRASE_SIZE, password, cipher);
     crypto dec(EVP_DECRYPT, PASSPHRASE_SIZE, password, cipher);
-
+	
     args.enc = &enc;
     args.dec = &dec;
-
-    // encrypt(plaintext, ciphertext, len, &enc);
-    // encrypt(ciphertext, plaintext, len, &dec);
-
 
 #endif
 

@@ -34,7 +34,7 @@ and limitations under the License.
 #include <iostream>
 #include <unistd.h>
 
-#define N_CRYPTO_THREADS 4
+#define N_CRYPTO_THREADS 2
 
 #define MUTEX_TYPE		pthread_mutex_t
 #define MUTEX_SETUP(x)		pthread_mutex_init(&(x), NULL)
@@ -121,12 +121,14 @@ class crypto
             exit(EXIT_FAILURE);
         }
 
-        memset(ivec, 0, 1024);
+
 
         direction = direc;
 
         // EVP stuff
 	for (int i = 0; i < N_CRYPTO_THREADS; i++){
+
+	    memset(ivec, 0, 1024);
 
 	    EVP_CIPHER_CTX_init(&ctx[i]);
 
@@ -134,8 +136,8 @@ class crypto
 		fprintf(stderr, "error setting encryption scheme\n");
 		exit(EXIT_FAILURE);
 	    }
+	    
 	}
-
 
     }
 
@@ -179,5 +181,4 @@ int encrypt(char* in, char* out, int len, crypto *c);
 /* int encrypt(char* in, char* out, int len, EVP_CIPHER_CTX* c[N_CRYPTO_THREADS]); */
 
 #endif
-/* Threaded instances */
 

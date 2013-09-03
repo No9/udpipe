@@ -9,7 +9,7 @@
 #include <stdlib.h>
 #include <pthread.h>
 #include <stdlib.h>
-#define DEBUG 0
+#define DEBUG 1
 
 #include "crypto.h"
 
@@ -21,6 +21,8 @@
 #define MUTEX_LOCK(x)	   pthread_mutex_lock(&x)
 #define MUTEX_UNLOCK(x)	   pthread_mutex_unlock(&x)
 #define THREAD_ID	   pthread_self()
+
+pthread_mutex_t c_lock;
 
 #define AES_BLOCK_SIZE 8
 
@@ -60,6 +62,7 @@ const int max_block_size = 64*1024;
 static void locking_function(int mode, int n, const char*file, int line)
 {
     
+    pris("LOCKING FUNCTION CALLED");
     if (mode & CRYPTO_LOCK)
 	MUTEX_LOCK(mutex_buf[n]);
     else
@@ -87,8 +90,7 @@ int THREAD_setup(void)
     for (i = 0; i < CRYPTO_num_locks(); i++)
 	MUTEX_SETUP(mutex_buf[i]);
 
-
-    /* CRYPTO_set_id_callback(id_function); */
+    // CRYPTO_set_id_callback(threadid_func);
     CRYPTO_THREADID_set_callback(threadid_func);
     CRYPTO_set_locking_callback(locking_function);
 
@@ -124,12 +126,15 @@ void *update_thread(void* _args)
     pris("entering update_threaded");
     
     // Grab arguments from void*
-    int evp_outlen;
+    int evp_outlen = 0;
     e_thread_args* args = (e_thread_args*)_args;
-	
+
+    // memcpy(args->out, args->in, args->len);
+    // evp_outlen = args->len;
+
     if(!EVP_CipherUpdate(args->ctx, args->out, &evp_outlen, args->in, args->len)){
-	fprintf(stderr, "encryption error\n");
-	exit(EXIT_FAILURE);
+    	fprintf(stderr, "encryption error\n");
+    	exit(EXIT_FAILURE);
     }
 
     if (evp_outlen-args->len){
@@ -137,7 +142,7 @@ void *update_thread(void* _args)
 		evp_outlen, args->len);
 	exit(1);
     }
-    
+
     args->len = evp_outlen;
     pthread_exit(NULL);
   
@@ -163,18 +168,17 @@ int update(e_thread_args args[N_CRYPTO_THREADS], uchar* in, uchar*out, unsigned 
     // size_t buf_len = (size_t) (((double)len)/N_CRYPTO_THREADS + 1);
 
     pris("Total length"); prii(len);
-  
     unsigned long cursor = 0;
-
     int i;
     for (i = 0; i < N_CRYPTO_THREADS; i++){
 	args[i].in = in+cursor;
 	args[i].out = out+cursor;
 	args[i].len = cursor+buf_len < len ? buf_len : len-cursor;
 
-	if (args[i].len>0)
+	if (args[i].len>0){
 	    pris("Buffer length"); prii(args[i].len);
-	
+	}	
+
 	cursor += args[i].len;
 	pris("cursor");prii(cursor);
     }
@@ -194,7 +198,7 @@ int update(e_thread_args args[N_CRYPTO_THREADS], uchar* in, uchar*out, unsigned 
 		exit(1);
 		
 	    }
-	    pris("Joined thread");
+
 	    prii(i);
 
 	}
@@ -216,13 +220,14 @@ int update(e_thread_args args[N_CRYPTO_THREADS], uchar* in, uchar*out, unsigned 
 		fprintf(stderr, "ERROR: return code from pthread_join()[%d] is %d\n",
 			i, *(int*)&stat);
 		exit(1);
-	    }
+	    } 
+	    
 	}
 	evp_outlen += args[i].len;
     }
   
     pris("Encryption threads joined");
-
+    prii(evp_outlen);
     return evp_outlen;
 
 }

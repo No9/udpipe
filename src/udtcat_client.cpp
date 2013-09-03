@@ -145,13 +145,15 @@ int run_client(thread_args *args)
     send_buf_args buf_args[N_THREADS];
     void*stat;
 
+    udt_buff += EVP_MAX_BLOCK_LENGTH;
+
     for (i = 0; i < N_THREADS; i ++){
 	buf_args[i].client = client[i];
 
     	if (!(buf_args[i].buf = (char*)malloc(udt_buff*sizeof(char))))
     	    uc_err("Unable to allocate thread buffer data");
     }
-
+    
     if (!(data=(char*)malloc(udt_buff*sizeof(char))))
 	uc_err("Unable to allocate main buffer");
 
@@ -183,6 +185,7 @@ int run_client(thread_args *args)
 	    buf_args[t].flags = 0;
 
 #ifdef CRYPTO
+	    // args->enc->encrypt(data, buf_args[t].buf, size);
 	    encrypt(data, buf_args[t].buf, size, args->enc);
 #else
 	    memcpy(buf_args[t].buf, data, size);
@@ -192,8 +195,6 @@ int run_client(thread_args *args)
 
 	}
 	t++;
-	    
-
 	
     }
 

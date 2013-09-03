@@ -81,8 +81,9 @@ void* recvdata(void * _args)
 	// pthread_mutex_unlock(&lock);
 
 #ifdef CRYPTO
-	char* plaintext = (char*) malloc(rs*sizeof(char));
+	char* plaintext = (char*) malloc((rs+EVP_MAX_BLOCK_LENGTH)*sizeof(char));
 	encrypt(data, plaintext, rs, args->dec);
+	// args->dec->encrypt(data, plaintext, rs);
 	write(fileno(stdout), plaintext, rs);
 	free(plaintext);
 #else	
@@ -151,8 +152,13 @@ void* send_buf_threaded(void*_args)
     int ssize = 0;
     int ss;
 
+    
     while (ssize < size) {
+#ifdef CRYPTO
 	if (UDT::ERROR == (ss = UDT::send(client, buf + ssize, size - ssize, 0))) {
+#else
+	if (UDT::ERROR == (ss = UDT::send(client, buf + ssize, size - ssize, 0))) {
+#endif
 	    cerr << "send:" << UDT::getlasterror().getErrorMessage() << endl;
 	    break;
 	}
