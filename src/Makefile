@@ -8,7 +8,7 @@ ifndef arch
    arch = IA32
 endif
 
-CCFLAGS = -Wall -D$(os) -I../udt/src -finline-functions -g -D_LARGE_FILE_SOURCE=1
+CCFLAGS = -Wall -D$(os) -I../udt/src -finline-functions -g -lcrypto -D_LARGE_FILE_SOURCE=1
 
 ifeq ($(arch), IA32)
    CCFLAGS += -DIA32 #-mcpu=pentiumpro -march=pentiumpro -mmmx -msse
@@ -46,7 +46,7 @@ all: $(APP)
 %.o: %.cpp 
 	$(C++) $(CCFLAGS) $< -c
 
-udtcat: udtcat.o udtcat_threads.o udtcat_server.o udtcat_client.o
+udtcat: udtcat.o udtcat_threads.o udtcat_server.o udtcat_client.o mt_aes.c
 	$(C++) $^ -o $(APPOUT) $(LDFLAGS)
 
 clean:

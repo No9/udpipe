@@ -27,6 +27,7 @@ and limitations under the License.
 
 #include "cc.h"
 #include "udtcat_threads.h"
+#include "mt_aes.h"
 
 #define N_THREADS 2
 /* #define BUFF_SIZE 67108864 */

@@ -116,6 +116,7 @@ int run_client(thread_args *args)
 	    return 1;
 	}
     }
+
     i = 0;
 
     pthread_t rcvthread;
@@ -134,9 +135,7 @@ int run_client(thread_args *args)
 
     size_t size;
     long total_sent = 0;
-
     char *data;
-
     pthread_t buf_threads[N_THREADS];
     send_buf_args buf_args[N_THREADS];
     void*stat;

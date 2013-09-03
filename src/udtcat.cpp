@@ -42,7 +42,8 @@ void initialize_thread_args(thread_args *args){
     args->blast_rate = 1000;
     args->udt_buff = BUFF_SIZE;
     args->udp_buff = BUFF_SIZE;
-    args->mss = 1300;
+    // args->mss = 1300;
+    args->mss = 8400;
   
 }
 

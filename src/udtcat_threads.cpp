@@ -67,17 +67,18 @@ void* recvdata(void* usocket)
 	    exit(0);
 	    break;
 	}
-	fprintf(stdout, "Here\n");
 
-	while (last_printed != thread_num-1);
+	
+	
+	// fprintf(stdout, "waiting on %d\n", last_printed);
+	// while (last_printed != thread_num-1);
 
-	pthread_mutex_lock(&lock);
-	if (thread_num == n_recv_threads-1)
-	    last_printed = -1;
-	else 
-	    last_printed = thread_num;
-	pthread_mutex_unlock(&lock);
-
+	// pthread_mutex_lock(&lock);
+	// if (thread_num == n_recv_threads-1)
+	//     last_printed = -1;
+	// else 
+	//     last_printed = thread_num;
+	// pthread_mutex_unlock(&lock);
 
 
 	write(fileno(stdout), data, rs);
