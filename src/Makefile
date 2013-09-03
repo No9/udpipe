@@ -46,7 +46,7 @@ all: $(APP)
 %.o: %.cpp 
 	$(C++) $(CCFLAGS) $< -c
 
-udtcat: udtcat.o udtcat_threads.o udtcat_server.o udtcat_client.o mt_aes.c
+udtcat: udtcat.o udtcat_threads.o udtcat_server.o udtcat_client.o crypto.o
 	$(C++) $^ -o $(APPOUT) $(LDFLAGS)
 
 clean:

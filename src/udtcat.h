@@ -27,32 +27,42 @@ and limitations under the License.
 
 #include "cc.h"
 #include "udtcat_threads.h"
-#include "mt_aes.h"
+#include "crypto.h"
 
-#define N_THREADS 2
-/* #define BUFF_SIZE 67108864 */
+
+
+#define N_THREADS 1
 #define BUFF_SIZE 67108864
-/* #define BUFF_SIZE 10 */
+
+
+#define CRYPTO
+
+typedef struct recv_args{
+    UDTSOCKET*usocket;
+    crypto *dec;
+
+} recv_args;
 
 typedef struct send_buf_args{
-  UDTSOCKET client; 
-  char* buf;
-  int size;
-  int flags;
-  int idle;
+    UDTSOCKET client; 
+    char* buf;
+    int size;
+    int flags;
+    int idle;
 } send_buf_args;
 
 
 typedef struct thread_args{
-  char *ip;
-  char *port;
-  int blast;
-  int blast_rate;
-  size_t udt_buff;
-  size_t udp_buff;
-  int mss;
+    crypto *enc;
+    crypto *dec;
+    char *ip;
+    char *port;
+    int blast;
+    int blast_rate;
+    size_t udt_buff;
+    size_t udp_buff;
+    int mss;
   
 } thread_args;
-
 
 void* send_buf_threaded(void*_args);

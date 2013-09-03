@@ -29,7 +29,6 @@ and limitations under the License.
 #define pris(x) fprintf(stderr,"debug: %s\n",x)
 #define uc_err(x) {fprintf(stderr,"error:%s\n",x);exit(1);}
 
-
 const int ECONNLOST = 2001;
 
 using std::cerr;
@@ -39,17 +38,20 @@ int n_recv_threads = 0;
 int last_printed = -1;
 pthread_mutex_t lock;
 
-void* recvdata(void* usocket)
+void* recvdata(void * _args)
 {
-    
+    recv_args * args = (recv_args*)_args;
 
     pthread_mutex_lock(&lock);
     int thread_num = n_recv_threads++;
     pthread_mutex_unlock(&lock);
     fprintf(stderr, "New recv thread %d\n", thread_num);
     
-    UDTSOCKET recver = *(UDTSOCKET*)usocket;
-    delete (UDTSOCKET*) usocket;
+    UDTSOCKET recver = *args->usocket;
+    // delete (UDTSOCKET*) args->usocket;
+
+    // UDTSOCKET recver = *(UDTSOCKET*)usocket;
+    // delete (UDTSOCKET*) usocket;
 
     char* data;
     int size = BUFF_SIZE;
@@ -68,8 +70,6 @@ void* recvdata(void* usocket)
 	    break;
 	}
 
-	
-	
 	// fprintf(stdout, "waiting on %d\n", last_printed);
 	// while (last_printed != thread_num-1);
 
@@ -80,8 +80,13 @@ void* recvdata(void* usocket)
 	//     last_printed = thread_num;
 	// pthread_mutex_unlock(&lock);
 
-
+#ifdef CRYPTO
+	char* plaintext = (char*) malloc(rs*sizeof(char));
+	encrypt(data, plaintext, rs, args->dec);
+	write(fileno(stdout), plaintext, rs);
+#else	
 	write(fileno(stdout), data, rs);
+#endif
 
     }
 

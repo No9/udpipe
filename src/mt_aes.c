@@ -16,7 +16,7 @@ void pric(char* s, int len){
     fprintf(stderr, "\n");
 }
 
-#define pris(x) {if(DEBUG)fprintf(stderr, "[crypto debug: %u]%s\n",THREAD_ID,x);}
+#define pris(x) {if(DEBUG)fprintf(stderr, "[crypto debug: %d]%s\n",THREAD_ID,x);}
 #define prii(x)    {if(DEBUG)fprintf(stderr, "             ->%d\n",x);}
 
 const int max_block_size = 64*1024;

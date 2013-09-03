@@ -18,8 +18,7 @@ and limitations under the License.
 
 // this should be maxline size
 /* #define BUF_SIZE 100000 */
-
-
+#include "crypto.h"
 
 void* recvdata(void*);
 

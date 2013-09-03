@@ -91,13 +91,9 @@ int run_server(thread_args *args){
     
     UDTSOCKET recver[N_THREADS];
     pthread_t rcvthread[N_THREADS];
-    pthread_t sendthread[N_THREADS];
-    int i;
 
     t = 0;
     
-    void*stat;
-
     while (t < N_THREADS) {
 
 	if (UDT::INVALID_SOCK == (recver[t] = UDT::accept(serv,
@@ -113,7 +109,13 @@ int run_server(thread_args *args){
 		    sizeof(clienthost), clientservice, sizeof(clientservice),
 		    NI_NUMERICHOST|NI_NUMERICSERV);
 
-	pthread_create(&rcvthread[t], NULL, recvdata, new UDTSOCKET(recver[t]));
+
+	recv_args rcvargs;
+	rcvargs.usocket = new UDTSOCKET(recver[t]);
+	rcvargs.dec = args->dec;
+	pthread_create(&rcvthread[t], NULL, recvdata, &rcvargs);
+	
+	// pthread_create(&rcvthread[t], NULL, recvdata, new UDTSOCKET(recver[t]));
 	// pthread_create(&sendthread[t], NULL, senddata, new UDTSOCKET(recver[t]));
 	// pthread_detach(rcvthread);
 	// pthread_detach(sendthread);

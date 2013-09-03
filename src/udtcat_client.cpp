@@ -90,6 +90,7 @@ int run_client(thread_args *args)
     
     int i = 0;
 
+    // UDTSOCKET *client = (UDTSOCKET*)malloc(N_THREADS*sizeof(UDTSOCKET));
     UDTSOCKET client[N_THREADS];
 
     for (i = 0; i < N_THREADS; i ++)
@@ -120,7 +121,11 @@ int run_client(thread_args *args)
     i = 0;
 
     pthread_t rcvthread;
-    pthread_create(&rcvthread, NULL, recvdata, new UDTSOCKET(client[i]));
+    recv_args rcvargs;
+    rcvargs.usocket = new UDTSOCKET(client[i]);
+    rcvargs.dec = args->dec;
+    pthread_create(&rcvthread, NULL, recvdata, &rcvargs);
+    // pthread_create(&rcvthread, NULL, recvdata, new UDTSOCKET(client[i]));
     pthread_detach(rcvthread);
 
     freeaddrinfo(peer);
@@ -176,11 +181,14 @@ int run_client(thread_args *args)
 
 	    buf_args[t].size = size;
 	    buf_args[t].flags = 0;
-	    memcpy(buf_args[t].buf, data, size);
-	
-	    pthread_create(&buf_threads[t], NULL, send_buf_threaded, &buf_args[t]);
 
-	
+#ifdef CRYPTO
+	    encrypt(data, buf_args[t].buf, size, args->enc);
+#else
+	    memcpy(buf_args[t].buf, data, size);
+#endif	
+
+	    pthread_create(&buf_threads[t], NULL, send_buf_threaded, &buf_args[t]);
 
 	}
 	t++;
@@ -189,7 +197,8 @@ int run_client(thread_args *args)
 	
     }
 
-    // UDT::close(client[i]);
+    for (i = 0; i < N_THREADS; i++)
+	UDT::close(client[i]);
   
     UDT::cleanup();
 

@@ -42,13 +42,14 @@ void initialize_thread_args(thread_args *args){
     args->blast_rate = 1000;
     args->udt_buff = BUFF_SIZE;
     args->udp_buff = BUFF_SIZE;
-    // args->mss = 1300;
     args->mss = 8400;
-  
+
 }
 
 int main(int argc, char *argv[]){
-  
+
+
+
     int opt;
     enum {NONE, SERVER, CLIENT};
     int operation = CLIENT;
@@ -90,6 +91,25 @@ int main(int argc, char *argv[]){
 	exit(1);
     }
 
+
+
+#ifdef CRYPTO
+
+    unsigned char* password = (unsigned char*) "12345";
+    char* cipher = (char*) "aes-128";
+
+    crypto enc(EVP_ENCRYPT, PASSPHRASE_SIZE, password, cipher);
+    crypto dec(EVP_DECRYPT, PASSPHRASE_SIZE, password, cipher);
+
+    args.enc = &enc;
+    args.dec = &dec;
+
+    // encrypt(plaintext, ciphertext, len, &enc);
+    // encrypt(ciphertext, plaintext, len, &dec);
+
+
+#endif
+
     if (operation == SERVER){
 	run_server(&args);
 
@@ -101,5 +121,6 @@ int main(int argc, char *argv[]){
     
     }
 
+    
   
 }
