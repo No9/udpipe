@@ -84,6 +84,7 @@ void* recvdata(void * _args)
 	char* plaintext = (char*) malloc(rs*sizeof(char));
 	encrypt(data, plaintext, rs, args->dec);
 	write(fileno(stdout), plaintext, rs);
+	free(plaintext);
 #else	
 	write(fileno(stdout), data, rs);
 #endif
@@ -149,7 +150,6 @@ void* send_buf_threaded(void*_args)
   
     int ssize = 0;
     int ss;
-    int* ret = (int*)malloc(sizeof(int));
 
     while (ssize < size) {
 	if (UDT::ERROR == (ss = UDT::send(client, buf + ssize, size - ssize, 0))) {
@@ -167,9 +167,9 @@ void* send_buf_threaded(void*_args)
 	cerr << "send:" << UDT::getlasterror().getErrorMessage() << endl;
 	exit(1);
     }
-    *ret = ss;
-    args->idle = 1;
 
-    return ret;
+    args->idle = 1;
+    args->size = ss;
+    pthread_exit(NULL);
 
 }

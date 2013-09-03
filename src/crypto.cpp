@@ -48,11 +48,6 @@ void pric(uchar* s, int len)
     fprintf(stderr, "\n");
 }
 
-// void pris(uchar* s){
-//     if (DEBUG)
-// 	fprintf(stderr, "[crypto debug: %u] %s\n", THREAD_ID, s);
-// }
-
 void prii(int i)
 {
     if (DEBUG)
@@ -65,7 +60,6 @@ const int max_block_size = 64*1024;
 static void locking_function(int mode, int n, const char*file, int line)
 {
     
-    /* fprintf(stderr, "[debug] %s\n", "Handling mutex"); */
     if (mode & CRYPTO_LOCK)
 	MUTEX_LOCK(mutex_buf[n]);
     else
@@ -228,6 +222,7 @@ int update(e_thread_args args[N_CRYPTO_THREADS], uchar* in, uchar*out, unsigned 
     }
   
     pris("Encryption threads joined");
+
     return evp_outlen;
 
 }

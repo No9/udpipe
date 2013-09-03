@@ -34,7 +34,7 @@ and limitations under the License.
 #include <iostream>
 #include <unistd.h>
 
-#define N_CRYPTO_THREADS 1
+#define N_CRYPTO_THREADS 4
 
 #define MUTEX_TYPE		pthread_mutex_t
 #define MUTEX_SETUP(x)		pthread_mutex_init(&(x), NULL)
@@ -67,7 +67,6 @@ class crypto
     // EVP stuff
     int thread_id;
     EVP_CIPHER_CTX ctx[N_CRYPTO_THREADS];
-
 
     crypto(int direc, int len, unsigned char* password, char *encryption_type)
     {

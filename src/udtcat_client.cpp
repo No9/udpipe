@@ -197,8 +197,11 @@ int run_client(thread_args *args)
 	
     }
 
-    for (i = 0; i < N_THREADS; i++)
+    for (i = 0; i < N_THREADS; i++){
 	UDT::close(client[i]);
+	free(buf_args[i].buf);
+    }
+    free(data);
   
     UDT::cleanup();
 

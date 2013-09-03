@@ -49,7 +49,6 @@ void initialize_thread_args(thread_args *args){
 int main(int argc, char *argv[]){
 
 
-
     int opt;
     enum {NONE, SERVER, CLIENT};
     int operation = CLIENT;
