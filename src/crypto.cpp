@@ -1,6 +1,10 @@
 #include <openssl/evp.h>
 #include <openssl/crypto.h>
 
+
+
+#include <time.h>
+
 #include <limits.h>
 #include <unistd.h>
 
@@ -71,7 +75,6 @@ static void threadid_func(CRYPTO_THREADID * id)
 // Setups up the mutual exclusion for OpenSSL
 int THREAD_setup(void)
 {
-
     pris("Setting up threads");
     mutex_buf = (MUTEX_TYPE*)malloc(CRYPTO_num_locks()*sizeof(MUTEX_TYPE));
   
@@ -94,7 +97,6 @@ int THREAD_setup(void)
 // Cleans up the mutex buffer for openSSL
 int THREAD_cleanup(void)
 {
-
     pris("Cleaning up threads");
     if (!mutex_buf)
 	return 0;
@@ -113,35 +115,29 @@ int THREAD_cleanup(void)
 
 void *crypto_update_thread(void* _args)
 {
+
+    clock_t start = clock();
     
     e_thread_args* args = (e_thread_args*)_args;
 
     int evp_outlen;
-    uchar *out = (uchar*)malloc(args->len*sizeof(uchar));
 
-    if (!out){
-	fprintf(stderr, "Unable to allocate internal encryption buffer");
-	exit(1);
-    }
-
-    EVP_CIPHER_CTX *ctx = args->ctx;
-	      
-    if(!EVP_CipherUpdate(ctx, out, &evp_outlen, args->in, args->len)){
-	fprintf(stderr, "encryption error\n");
-	exit(EXIT_FAILURE);
+    if(!EVP_CipherUpdate(args->ctx, args->in, &evp_outlen, args->in, args->len)){
+    	fprintf(stderr, "encryption error\n");
+    	exit(EXIT_FAILURE);
     }
 
     if (evp_outlen-args->len){
-	fprintf(stderr, "Did not encrypt full length of data [%d-%d]", 
-		evp_outlen, args->len);
-	exit(1);
+    	fprintf(stderr, "Did not encrypt full length of data [%d-%d]", 
+    		evp_outlen, args->len);
+    	exit(1);
     }
 
     args->len = evp_outlen;
 
-    memcpy(args->in, out, args->len);
-
-    free(out);
+    clock_t end = clock();
+    double time_elapsed_in_seconds = (end - start)/(double)CLOCKS_PER_SEC;
+    fprintf(stderr, "Time in crypto: %.3f s\n", time_elapsed_in_seconds);
 
     pthread_exit(NULL);
   
@@ -150,18 +146,12 @@ void *crypto_update_thread(void* _args)
 int crypto_update(char* in, int len, crypto *c)
 {
 
-    uchar *out = (uchar*) malloc(len*sizeof(uchar));
-
-    if (!out){
-	fprintf(stderr, "Unable to allocate internal encryption buffer");
-	exit(1);
-    }
 
     int i = 0, evp_outlen = 0;
     if (len == 0) {
 	
 	// FINALIZE CIPHER
-	if (!EVP_CipherFinal_ex(&c->ctx[i], (uchar*)out, &evp_outlen)) {
+	if (!EVP_CipherFinal_ex(&c->ctx[i], (uchar*)in, &evp_outlen)) {
 	    	fprintf(stderr, "encryption error\n");
 	    	exit(EXIT_FAILURE);
 	}
@@ -171,24 +161,20 @@ int crypto_update(char* in, int len, crypto *c)
 	// UPDATE CIPHER NUMBER
 	i = 0;
 
-	// [EN][DE]CRYPT
-	if(!EVP_CipherUpdate(&c->ctx[i], (uchar*)out, &evp_outlen, (uchar*)in, len)){
-	    fprintf(stderr, "encryption error\n");
-	    exit(EXIT_FAILURE);
-	}
+    	// [EN][DE]CRYPT
+    	if(!EVP_CipherUpdate(&c->ctx[i], (uchar*)in, &evp_outlen, (uchar*)in, len)){
+    	    fprintf(stderr, "encryption error\n");
+    	    exit(EXIT_FAILURE);
+    	}
 
-	// DOUBLE CHECK
-	if (evp_outlen-len){
-	    fprintf(stderr, "Did not encrypt full length of data [%d-%d]", 
-		    evp_outlen, len);
-	    exit(EXIT_FAILURE);
-	}
+    	// DOUBLE CHECK
+    	if (evp_outlen-len){
+    	    fprintf(stderr, "Did not encrypt full length of data [%d-%d]", 
+    		    evp_outlen, len);
+    	    exit(EXIT_FAILURE);
+    	}
 
     }
-    
-    memcpy(in, out, evp_outlen);
-
-    free(out);
 
     return evp_outlen;
 

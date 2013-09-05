@@ -18,6 +18,10 @@ and limitations under the License.
 #ifndef CRYPTO_H
 #define CRYPTO_H
 
+
+#define N_CRYPTO_THREADS 2
+#define USE_CRYPTO 1
+
 #define PASSPHRASE_SIZE 32
 #define HEX_PASSPHRASE_SIZE 64
 #define EVP_ENCRYPT 1
@@ -33,9 +37,6 @@ and limitations under the License.
 #include <limits.h>
 #include <iostream>
 #include <unistd.h>
-
-#define N_CRYPTO_THREADS 1
-#define USE_CRYPTO 1
 
 #define MUTEX_TYPE		pthread_mutex_t
 #define MUTEX_SETUP(x)		pthread_mutex_init(&(x), NULL)
@@ -120,10 +121,7 @@ class crypto
             exit(EXIT_FAILURE);
         }
 
-
-
         direction = direc;
-
 
         // EVP stuff
 	for (int i = 0; i < N_CRYPTO_THREADS; i++){
