@@ -29,16 +29,21 @@ and limitations under the License.
 #include "udtcat_threads.h"
 #include "crypto.h"
 
-#define N_THREADS 1
 #define BUFF_SIZE 67108864
-
-#define CRYPTO
+/* #define BUFF_SIZE 2097152 */
 
 typedef struct recv_args{
     UDTSOCKET*usocket;
     crypto *dec;
-
 } recv_args;
+
+
+typedef struct snd_args{
+    UDTSOCKET*usocket;
+    crypto *enc;
+} snd_args;
+
+
 
 typedef struct send_buf_args{
     UDTSOCKET client; 

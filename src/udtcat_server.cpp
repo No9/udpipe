@@ -41,7 +41,6 @@ int run_server(thread_args *args){
     int udt_buff = args->udt_buff;
     int udp_buff = args->udp_buff; // 67108864;
     int mss = args->mss;
-    int t;
 
     UDT::startup();
 
@@ -88,15 +87,14 @@ int run_server(thread_args *args){
 
     sockaddr_storage clientaddr;
     int addrlen = sizeof(clientaddr);
-    
-    UDTSOCKET recver[N_THREADS];
-    pthread_t rcvthread[N_THREADS];
 
-    t = 0;
     
-    while (t < N_THREADS) {
+    UDTSOCKET recver;
+    pthread_t rcvthread, sndthread;
 
-	if (UDT::INVALID_SOCK == (recver[t] = UDT::accept(serv,
+    while (1){
+
+	if (UDT::INVALID_SOCK == (recver = UDT::accept(serv,
 							  (sockaddr*)&clientaddr, &addrlen))) {
 
 	    cerr << "accept: " << UDT::getlasterror().getErrorMessage() << endl;
@@ -111,24 +109,23 @@ int run_server(thread_args *args){
 
 
 	recv_args rcvargs;
-	rcvargs.usocket = new UDTSOCKET(recver[t]);
+	rcvargs.usocket = new UDTSOCKET(recver);
 	rcvargs.dec = args->dec;
-	pthread_create(&rcvthread[t], NULL, recvdata, &rcvargs);
-	
-	// pthread_create(&rcvthread[t], NULL, recvdata, new UDTSOCKET(recver[t]));
-	// pthread_create(&sendthread[t], NULL, senddata, new UDTSOCKET(recver[t]));
-	// pthread_detach(rcvthread);
-	// pthread_detach(sendthread);
 
-	t++;
+	pthread_create(&rcvthread, NULL, recvdata, &rcvargs);
+	pthread_detach(rcvthread);
+
+	snd_args send_args;
+	send_args.usocket = new UDTSOCKET(recver);
+	send_args.enc = args->enc;
+
+	// pthread_create(&sndthread, NULL, senddata, new UDTSOCKET(recver));
+	pthread_create(&sndthread, NULL, senddata, &send_args);
+	pthread_detach(sndthread);
+
     }
 
-
-    while(1){
-	sleep(1);
-    }
-
-    // UDT::close(serv);
+    UDT::close(serv);
 
     UDT::cleanup();
     freeaddrinfo(res);

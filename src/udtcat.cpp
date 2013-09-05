@@ -90,10 +90,6 @@ int main(int argc, char *argv[]){
 	exit(1);
     }
 
-
-
-#ifdef CRYPTO
-
     unsigned char* password = (unsigned char*) "12345";
     char* cipher = (char*) "aes-128";
 
@@ -102,8 +98,6 @@ int main(int argc, char *argv[]){
 	
     args.enc = &enc;
     args.dec = &dec;
-
-#endif
 
     if (operation == SERVER){
 	run_server(&args);

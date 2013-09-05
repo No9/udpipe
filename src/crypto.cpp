@@ -24,18 +24,10 @@
 
 pthread_mutex_t c_lock;
 
+int current_cipher = 0;
+
 #define AES_BLOCK_SIZE 8
 
-typedef unsigned char uchar;
-
-typedef struct e_thread_args
-{
-    uchar *in;
-    uchar *out;
-    int len;
-    int n_threads;
-    EVP_CIPHER_CTX* ctx;
-} e_thread_args;
 
 static MUTEX_TYPE *mutex_buf = NULL;
 static void locking_function(int mode, int n, const char*file, int line);
@@ -99,7 +91,6 @@ int THREAD_setup(void)
     return 0;
 }
 
-
 // Cleans up the mutex buffer for openSSL
 int THREAD_cleanup(void)
 {
@@ -120,21 +111,24 @@ int THREAD_cleanup(void)
 
 }
 
-void *update_thread(void* _args)
+void *crypto_update_thread(void* _args)
 {
-
-    pris("entering update_threaded");
     
-    // Grab arguments from void*
-    int evp_outlen = 0;
     e_thread_args* args = (e_thread_args*)_args;
 
-    // memcpy(args->out, args->in, args->len);
-    // evp_outlen = args->len;
+    int evp_outlen;
+    uchar *out = (uchar*)malloc(args->len*sizeof(uchar));
 
-    if(!EVP_CipherUpdate(args->ctx, args->out, &evp_outlen, args->in, args->len)){
-    	fprintf(stderr, "encryption error\n");
-    	exit(EXIT_FAILURE);
+    if (!out){
+	fprintf(stderr, "Unable to allocate internal encryption buffer");
+	exit(1);
+    }
+
+    EVP_CIPHER_CTX *ctx = args->ctx;
+	      
+    if(!EVP_CipherUpdate(ctx, out, &evp_outlen, args->in, args->len)){
+	fprintf(stderr, "encryption error\n");
+	exit(EXIT_FAILURE);
     }
 
     if (evp_outlen-args->len){
@@ -144,118 +138,61 @@ void *update_thread(void* _args)
     }
 
     args->len = evp_outlen;
+
+    memcpy(args->in, out, args->len);
+
+    free(out);
+
     pthread_exit(NULL);
   
 }
 
-
-/* int update(int mode, EVP_CIPHER_CTX* c, uchar* in, uchar*out, int len){ */
-int update(e_thread_args args[N_CRYPTO_THREADS], uchar* in, uchar*out, unsigned long len)
+int crypto_update(char* in, int len, crypto *c)
 {
 
-    pris("Recieved string to encrypt");
+    uchar *out = (uchar*) malloc(len*sizeof(uchar));
 
-    // Create threads
-    pthread_t thread[N_CRYPTO_THREADS];
-    pthread_attr_t attr;
-  
-    // Make threads joinable
-    pthread_attr_init(&attr);
-    pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
-
-    // Assign portions of in/out to each thread arg % AES_BLOCK_SIZE = 0
-    size_t buf_len = (size_t) (((double)len)/N_CRYPTO_THREADS/AES_BLOCK_SIZE + 1)*AES_BLOCK_SIZE;
-    // size_t buf_len = (size_t) (((double)len)/N_CRYPTO_THREADS + 1);
-
-    pris("Total length"); prii(len);
-    unsigned long cursor = 0;
-    int i;
-    for (i = 0; i < N_CRYPTO_THREADS; i++){
-	args[i].in = in+cursor;
-	args[i].out = out+cursor;
-	args[i].len = cursor+buf_len < len ? buf_len : len-cursor;
-
-	if (args[i].len>0){
-	    pris("Buffer length"); prii(args[i].len);
-	}	
-
-	cursor += args[i].len;
-	pris("cursor");prii(cursor);
+    if (!out){
+	fprintf(stderr, "Unable to allocate internal encryption buffer");
+	exit(1);
     }
 
-    pris("Encryption threads initialized");
-
-    // Spawn and run encryption threads
-    for(i = 0; i < N_CRYPTO_THREADS; i++) {
-      
-	// Ignore unused threads but spawn the others
-	if (args[i].len > 0){
-	    
-	    int stat = pthread_create(&thread[i], NULL, update_thread, &args[i]); 
-	    
-	    if (stat) {
-		fprintf(stderr, "ERROR; return code from pthread_create() is %d\n", stat);
-		exit(1);
-		
-	    }
-
-	    prii(i);
-
-	}
-
-    }
-
-    pris("Waiting to join encryption threads");
-
-    int evp_outlen = 0;
-
-    /* Free attribute and wait for the other threads */
-    pthread_attr_destroy(&attr);
-    for(i = 0; i < N_CRYPTO_THREADS; i++) {
-
-	void*status;
-	if (args[i].len > 0){
-	    int stat = pthread_join(thread[i], &status);
-	    if (stat) {
-		fprintf(stderr, "ERROR: return code from pthread_join()[%d] is %d\n",
-			i, *(int*)&stat);
-		exit(1);
-	    } 
-	    
-	}
-	evp_outlen += args[i].len;
-    }
-  
-    pris("Encryption threads joined");
-    prii(evp_outlen);
-    return evp_outlen;
-
-}
-
-int encrypt(char* in, char* out, int len, crypto *c)
-{
-    
-    int evp_outlen = 0;
+    int i = 0, evp_outlen = 0;
     if (len == 0) {
-	for (int i = 0; i < N_CRYPTO_THREADS; i ++){
-	    if (!EVP_CipherFinal_ex(&c->ctx[i], (uchar*)out, &evp_outlen)) {
+	
+	// FINALIZE CIPHER
+	if (!EVP_CipherFinal_ex(&c->ctx[i], (uchar*)out, &evp_outlen)) {
 	    	fprintf(stderr, "encryption error\n");
 	    	exit(EXIT_FAILURE);
-	    }
 	}
 
     } else {
-	e_thread_args args[N_CRYPTO_THREADS];
-	for (int i = 0;  i < N_CRYPTO_THREADS; i++)
-	    args[i].ctx = &c->ctx[i];
-	evp_outlen = update(args, (uchar*)in, (uchar*)out, len);
+
+	// UPDATE CIPHER NUMBER
+	i = 0;
+
+	// [EN][DE]CRYPT
+	if(!EVP_CipherUpdate(&c->ctx[i], (uchar*)out, &evp_outlen, (uchar*)in, len)){
+	    fprintf(stderr, "encryption error\n");
+	    exit(EXIT_FAILURE);
+	}
+
+	// DOUBLE CHECK
+	if (evp_outlen-len){
+	    fprintf(stderr, "Did not encrypt full length of data [%d-%d]", 
+		    evp_outlen, len);
+	    exit(EXIT_FAILURE);
+	}
 
     }
+    
+    memcpy(in, out, evp_outlen);
+
+    free(out);
 
     return evp_outlen;
 
-
-
 }
+
 
 

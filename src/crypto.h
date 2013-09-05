@@ -34,7 +34,8 @@ and limitations under the License.
 #include <iostream>
 #include <unistd.h>
 
-#define N_CRYPTO_THREADS 2
+#define N_CRYPTO_THREADS 1
+#define USE_CRYPTO 1
 
 #define MUTEX_TYPE		pthread_mutex_t
 #define MUTEX_SETUP(x)		pthread_mutex_init(&(x), NULL)
@@ -43,15 +44,13 @@ and limitations under the License.
 #define MUTEX_UNLOCK(x)		pthread_mutex_unlock(&x)
 #define THREAD_ID		pthread_self()
 
-/* static MUTEX_TYPE *mutex_buf = NULL; */
-/* static void locking_function(int mode, int n, const char*file, int line); */
-/* static unsigned long id_function(void); */
-/* static void* id_function(CRYPTO_THREADID * id); */
 int THREAD_setup(void);
 int THREAD_cleanup(void);
 void *enrypt_threaded(void* _args);
 
 using namespace std;
+
+typedef unsigned char uchar;
 
 class crypto
 {
@@ -125,6 +124,7 @@ class crypto
 
         direction = direc;
 
+
         // EVP stuff
 	for (int i = 0; i < N_CRYPTO_THREADS; i++){
 
@@ -133,8 +133,8 @@ class crypto
 	    EVP_CIPHER_CTX_init(&ctx[i]);
 
 	    if (!EVP_CipherInit_ex(&ctx[i], cipher, NULL, password, ivec, direc)) {
-		fprintf(stderr, "error setting encryption scheme\n");
-		exit(EXIT_FAILURE);
+	    	fprintf(stderr, "error setting encryption scheme\n");
+	    	exit(EXIT_FAILURE);
 	    }
 	    
 	}
@@ -176,9 +176,18 @@ class crypto
     
 };
 
-/* int encrypt(char*in, char*out, int len, crypto* c); */
-int encrypt(char* in, char* out, int len, crypto *c);
-/* int encrypt(char* in, char* out, int len, EVP_CIPHER_CTX* c[N_CRYPTO_THREADS]); */
+
+typedef struct e_thread_args
+{
+    uchar *in;
+    int len;
+    crypto *c;
+    EVP_CIPHER_CTX *ctx;
+
+} e_thread_args;
+
+int crypto_update(char* in, int len, crypto *c);
+void *crypto_update_thread(void* _args);
 
 #endif
 
