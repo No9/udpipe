@@ -272,7 +272,7 @@ void* senddata(void* _args)
 	    buffer_cursor += len;
 
 	    if (buffer_cursor >= 2*BUFF_SIZE)
-		uc_err("Preventing encryption buffer overflow");
+		uc_err("Encryption buffer overflow");
 
 	    while (encrypt_cursor+encrypt_buf_len <= buffer_cursor){
 
