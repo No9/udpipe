@@ -19,7 +19,7 @@ and limitations under the License.
 #define CRYPTO_H
 
 
-#define N_CRYPTO_THREADS 2
+#define N_CRYPTO_THREADS 4
 #define USE_CRYPTO 1
 
 #define PASSPHRASE_SIZE 32

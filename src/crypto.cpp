@@ -116,12 +116,15 @@ int THREAD_cleanup(void)
 void *crypto_update_thread(void* _args)
 {
 
-    clock_t start = clock();
+    // clock_t start = clock();
     
     e_thread_args* args = (e_thread_args*)_args;
 
-    int evp_outlen;
+    int evp_outlen = 0;
 
+    // for (int i = 0; i < args->len; i ++)
+    // 	args->in[i] = args->in[i] ^ 0xCC;
+    
     if(!EVP_CipherUpdate(args->ctx, args->in, &evp_outlen, args->in, args->len)){
     	fprintf(stderr, "encryption error\n");
     	exit(EXIT_FAILURE);
@@ -135,9 +138,9 @@ void *crypto_update_thread(void* _args)
 
     args->len = evp_outlen;
 
-    clock_t end = clock();
-    double time_elapsed_in_seconds = (end - start)/(double)CLOCKS_PER_SEC;
-    fprintf(stderr, "Time in crypto: %.3f s\n", time_elapsed_in_seconds);
+    // clock_t end = clock();
+    // double time_elapsed_in_seconds = (end - start)/(double)CLOCKS_PER_SEC;
+    // fprintf(stderr, "Time in crypto: %.3f s\n", time_elapsed_in_seconds);
 
     pthread_exit(NULL);
   
@@ -160,6 +163,9 @@ int crypto_update(char* in, int len, crypto *c)
 
 	// UPDATE CIPHER NUMBER
 	i = 0;
+    
+	// for (int i = 0; i < len; i ++)
+	//     in[i] = in[i] ^ 0xCC;
 
     	// [EN][DE]CRYPT
     	if(!EVP_CipherUpdate(&c->ctx[i], (uchar*)in, &evp_outlen, (uchar*)in, len)){

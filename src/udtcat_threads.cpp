@@ -62,29 +62,27 @@ void* recvdata(void * _args)
     int decrypt_cursor = 0;
     int buffer_cursor = 0;
     int curr_crypto_thread = 0;
-    int overflow = 0;
-
 
     if (USE_CRYPTO){
 
-	char* decrypt_buffer = (char*) malloc(2*BUFF_SIZE*sizeof(char));
+	char* decrypt_buffer = (char*) malloc(BUFF_SIZE*sizeof(char));
 	if (!decrypt_buffer)
 	    uc_err("Error allocating decryption buffer");
 
 	while (1) {
 
 	    // read in from UDT
-	    if (UDT::ERROR == (len = UDT::recv(recver, decrypt_buffer+buffer_cursor, size, 0))) {
+	    if (UDT::ERROR == (len = UDT::recv(recver, 
+					       decrypt_buffer+buffer_cursor, 
+					       BUFF_SIZE-buffer_cursor, 0))) {
+
 		if (UDT::getlasterror().getErrorCode() != ECONNLOST)
 		    cerr << "recv:" << UDT::getlasterror().getErrorMessage() << endl;
 
 		if (buffer_cursor > 0){
 
-		    for (int i = 0; i < curr_crypto_thread; i++){
-			if (pthread_join(decryption_threads[i], NULL))
-			    uc_err("Unable to join decryption thread[d]");
-		    }
-		    curr_crypto_thread = 0;
+		    for (int i = 0; i < N_CRYPTO_THREADS; i++)
+			pthread_join(decryption_threads[i], NULL);
 
 		    crypto_update(decrypt_buffer+decrypt_cursor, 
 				  buffer_cursor-decrypt_cursor,
@@ -99,61 +97,39 @@ void* recvdata(void * _args)
 
 	    buffer_cursor += len;
 
-	    if (buffer_cursor >= 2*BUFF_SIZE)
+	    if (buffer_cursor > BUFF_SIZE)
 		uc_err("Decryption buffer overflow");
 
 	    while (decrypt_cursor+decrypt_buf_len <= buffer_cursor){
 
-		if (curr_crypto_thread >= N_CRYPTO_THREADS){
-		    for (int i = 0; i < N_CRYPTO_THREADS; i++){
-			if (pthread_join(decryption_threads[i], NULL))
-			    uc_err("Unable to join decryption thread[e]");
-		    }
-		    curr_crypto_thread = 0;
-		}
+		pthread_join(decryption_threads[curr_crypto_thread], NULL);
 
 		e_args[curr_crypto_thread].in = (uchar*) decrypt_buffer+decrypt_cursor;
 		e_args[curr_crypto_thread].len = decrypt_buf_len;
 		e_args[curr_crypto_thread].c = args->dec;
 		e_args[curr_crypto_thread].ctx = &args->dec->ctx[curr_crypto_thread];
-		
+
 		pthread_create(&decryption_threads[curr_crypto_thread],
-			       NULL, crypto_update_thread, &e_args);
+			       NULL, crypto_update_thread, &e_args[curr_crypto_thread]);
 
 		curr_crypto_thread++;
+		if (curr_crypto_thread>=N_CRYPTO_THREADS)
+		    curr_crypto_thread = 0;
+
 		decrypt_cursor += decrypt_buf_len;
 
 	    }
 
-	    if (buffer_cursor >= BUFF_SIZE){
+	    if (decrypt_cursor >= BUFF_SIZE){
 
-		for (int i = 0; i < curr_crypto_thread; i++){
-		    if (pthread_join(decryption_threads[i], NULL))
-			uc_err("Unable to join decryption thread");
-		}
+		for (int i = 0; i < N_CRYPTO_THREADS; i++)
+		    pthread_join(decryption_threads[i], NULL);
 
 		write(fileno(stdout), decrypt_buffer, BUFF_SIZE);
-
-		if (buffer_cursor > BUFF_SIZE){
-
-		    fprintf(stderr, "Fixing overflow\n");
-
-		    buffer_cursor -= BUFF_SIZE;
-		    
-		    memmove(decrypt_buffer, 
-			    decrypt_buffer+BUFF_SIZE, 
-			    buffer_cursor);
-
-		    decrypt_cursor = 0;
-		    
-		} else {
 		
-		    buffer_cursor = 0;
-		    decrypt_cursor = 0;
-		}
-
+		buffer_cursor = 0;
+		decrypt_cursor = 0;
 		curr_crypto_thread = 0;
-
 
 	    }
 
@@ -261,7 +237,7 @@ void* senddata(void* _args)
 
 	while (1) {
 
-	    len = read(STDIN_FILENO, encrypt_buffer+buffer_cursor, BUFF_SIZE);
+	    len = read(STDIN_FILENO, encrypt_buffer+buffer_cursor, BUFF_SIZE-buffer_cursor);
 
 	    if (len < 0) {
 		uc_err(strerror(errno));
@@ -271,71 +247,49 @@ void* senddata(void* _args)
 
 	    buffer_cursor += len;
 
-	    if (buffer_cursor >= 2*BUFF_SIZE)
+	    if (buffer_cursor > BUFF_SIZE)
 		uc_err("Encryption buffer overflow");
 
 	    while (encrypt_cursor+encrypt_buf_len <= buffer_cursor){
 
-		if (curr_crypto_thread >= N_CRYPTO_THREADS){
-		    for (int i = 0; i < N_CRYPTO_THREADS; i++){
-			if (pthread_join(encryption_threads[i], NULL))
-			    uc_err("Unable to join encryption thread. [a]");
-		    }
-		    curr_crypto_thread = 0;
-		}
+		pthread_join(encryption_threads[curr_crypto_thread], NULL);
 
 		e_args[curr_crypto_thread].in = (uchar*) encrypt_buffer+encrypt_cursor;
 		e_args[curr_crypto_thread].len = encrypt_buf_len;
 		e_args[curr_crypto_thread].c = args->enc;
 		e_args[curr_crypto_thread].ctx = &args->enc->ctx[curr_crypto_thread];
-		
+
 		pthread_create(&encryption_threads[curr_crypto_thread],
-			       NULL, crypto_update_thread, &e_args);
+			       NULL, crypto_update_thread, &e_args[curr_crypto_thread]);
 
 		curr_crypto_thread++;
+		if (curr_crypto_thread >= N_CRYPTO_THREADS)
+		    curr_crypto_thread = 0;
+		    
 		encrypt_cursor += encrypt_buf_len;
 
 	    }
 
-	    if (buffer_cursor >= BUFF_SIZE){
+	    if (encrypt_cursor >= BUFF_SIZE){
 
-		for (int i = 0; i < curr_crypto_thread; i++){
-		    if (pthread_join(encryption_threads[i], NULL))
-			uc_err("Unable to join encryption thread. [b]");
-		}
+		for (int i = 0; i < N_CRYPTO_THREADS; i++)
+		    pthread_join(encryption_threads[i], NULL);
 
 		send_buf(client, encrypt_buffer, buffer_cursor, flags);
-
-		if (buffer_cursor > BUFF_SIZE){
-
-		    buffer_cursor -= BUFF_SIZE;
-		    
-		    memmove(encrypt_buffer, 
-			    encrypt_buffer+BUFF_SIZE, 
-			    buffer_cursor);
-
-		    encrypt_cursor = 0;
-		    
-		} else {
 		
-		    buffer_cursor = 0;
-		    encrypt_cursor = 0;
-		}
-
+		buffer_cursor = 0;
+		encrypt_cursor = 0;
 		curr_crypto_thread = 0;
 
 	    }
 
-
 	}
 
-	prisi("Last cursor state", buffer_cursor);
-	if (buffer_cursor > 0){
-	    for (int i = 0; i < curr_crypto_thread; i++){
-		if (pthread_join(encryption_threads[i], NULL))
-		    uc_err("Unable to join encryption thread[c]");
-	    }
 
+	if (buffer_cursor > 0){
+
+	    for (int i = 0; i < N_CRYPTO_THREADS; i++)
+		pthread_join(encryption_threads[i], NULL);
 
 	    crypto_update(encrypt_buffer+encrypt_cursor, 
 			  buffer_cursor-encrypt_cursor,
@@ -364,8 +318,6 @@ void* senddata(void* _args)
 	}
     }
 
-
-    free(data);
 
     UDT::close(client);
 
