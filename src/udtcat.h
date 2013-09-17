@@ -30,7 +30,6 @@ and limitations under the License.
 #include "crypto.h"
 
 #define BUFF_SIZE 67108864
-/* #define BUFF_SIZE 2097152 */
 
 typedef struct recv_args{
     UDTSOCKET*usocket;

@@ -19,7 +19,7 @@ and limitations under the License.
 #define CRYPTO_H
 
 
-#define N_CRYPTO_THREADS 4
+#define N_CRYPTO_THREADS 16
 #define USE_CRYPTO 1
 
 #define PASSPHRASE_SIZE 32
@@ -186,6 +186,13 @@ typedef struct e_thread_args
 
 int crypto_update(char* in, int len, crypto *c);
 void *crypto_update_thread(void* _args);
+int pthread_join_disregard_ESRCH(pthread_t thread, int thread_id);
+int join_all_encryption_threads(pthread_t threads[N_CRYPTO_THREADS]);
+int pass_to_enc_thread(pthread_t crypto_threads[N_CRYPTO_THREADS], 
+		       e_thread_args * e_args,
+		       int * curr_crypto_thread,
+		       char* in, int len, 
+		       crypto*c);
 
 #endif
 
