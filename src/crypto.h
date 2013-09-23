@@ -18,15 +18,17 @@ and limitations under the License.
 #ifndef CRYPTO_H
 #define CRYPTO_H
 
-
-#define N_CRYPTO_THREADS 16
+#define N_CRYPTO_THREADS 8
 #define USE_CRYPTO 1
+
 
 #define PASSPHRASE_SIZE 32
 #define HEX_PASSPHRASE_SIZE 64
 #define EVP_ENCRYPT 1
 #define EVP_DECRYPT 0
 #define CTR_MODE 1
+
+
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -49,6 +51,8 @@ int THREAD_setup(void);
 int THREAD_cleanup(void);
 void *enrypt_threaded(void* _args);
 
+
+
 using namespace std;
 
 typedef unsigned char uchar;
@@ -60,13 +64,15 @@ class crypto
     unsigned char ivec[ 1024 ];
     int direction;
 
+
     int passphrase_size;
     int hex_passphrase_size;
-    public:
-
+ public:
+       
     // EVP stuff
     int thread_id;
     EVP_CIPHER_CTX ctx[N_CRYPTO_THREADS];
+
 
     crypto(int direc, int len, unsigned char* password, char *encryption_type)
     {
@@ -175,12 +181,14 @@ class crypto
 };
 
 
+
 typedef struct e_thread_args
 {
     uchar *in;
     int len;
     crypto *c;
     EVP_CIPHER_CTX *ctx;
+ 
 
 } e_thread_args;
 
@@ -193,6 +201,9 @@ int pass_to_enc_thread(pthread_t crypto_threads[N_CRYPTO_THREADS],
 		       int * curr_crypto_thread,
 		       char* in, int len, 
 		       crypto*c);
+
+
+
 
 #endif
 

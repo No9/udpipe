@@ -41,27 +41,26 @@ int n_recv_threads = 0;
 int last_printed = -1;
 pthread_mutex_t lock;
 
-/* 
- THINGS NEEDED IN APPLICATION TO RUN THE MT SUPPORTED CRYPTO:
-   pthread_t crypto_threads[N_THREADS];
-   e_thread_args * e_args;
-   crypto *c;
-   int* curr_crypto_thread;
-*/
+
+// ----------- [  Things needed in application to run the mt supported crypto
+// pthread_t crypto_threads[N_THREADS];
+// e_thread_args * e_args;
+// crypto *c;
+// int* curr_crypto_thread;
 
 void* recvdata(void * _args)
 {
 
-    // Handle socket
+    // ----------- [  Handle socket
     recv_args * args = (recv_args*)_args;
     UDTSOCKET recver = *args->usocket;
 
-    // Decryption locals
+    // ----------- [ Decryption locals
     int read_len;
-    e_thread_args e_args[N_CRYPTO_THREADS];
 
+    // ----------- [ Crypto variables
+    e_thread_args e_args[N_CRYPTO_THREADS];
     pthread_t decryption_threads[N_CRYPTO_THREADS];
-    
     int decrypt_buf_len = BUFF_SIZE / N_CRYPTO_THREADS;
     int len, decrypt_cursor, buffer_cursor, curr_crypto_thread;
     decrypt_cursor = buffer_cursor = curr_crypto_thread = 0;
@@ -96,11 +95,11 @@ void* recvdata(void * _args)
 
 	    buffer_cursor += len;
 
-	    // This should never happen
+	    // ----------- [ This should never happen
 	    if (buffer_cursor > BUFF_SIZE)
 		uc_err("Decryption buffer overflow");
 
-	    // Decrypt what we've got
+	    // ----------- [ Decrypt what we've got
 	    while (decrypt_cursor+decrypt_buf_len <= buffer_cursor){
 		pass_to_enc_thread(decryption_threads, 
 				   e_args,
@@ -111,7 +110,7 @@ void* recvdata(void * _args)
 		decrypt_cursor += decrypt_buf_len;
 	    }
 
-	    // Write the decrypted buffer and reset
+	    // ----------- [ Write the decrypted buffer and reset
 	    if (decrypt_cursor >= BUFF_SIZE){
 		join_all_encryption_threads(decryption_threads);
 		write(fileno(stdout), decrypt_buffer, BUFF_SIZE);
@@ -206,7 +205,7 @@ void* senddata(void* _args)
 	    if (buffer_cursor > BUFF_SIZE)
 		uc_err("Encryption buffer overflow");
 
-	    // Encrypt data
+	    // ----------- [ Encrypt data
 	    while (encrypt_cursor+encrypt_buf_len <= buffer_cursor){
 		pass_to_enc_thread(encryption_threads, 
 				   e_args,
@@ -217,7 +216,7 @@ void* senddata(void* _args)
 		encrypt_cursor += encrypt_buf_len;
 	    }
 
-	    // If full buffer, then send to UDT
+	    // ----------- [ If full buffer, then send to UDT
 	    if (encrypt_cursor >= BUFF_SIZE){
 		join_all_encryption_threads(encryption_threads);
 		send_buf(client, encrypt_buffer, buffer_cursor, flags);
@@ -227,7 +226,7 @@ void* senddata(void* _args)
 
 	}
 
-	// Finish any remaining buffer data
+	// ----------- [ Finish any remaining buffer data
 	if (buffer_cursor > 0){
 	    join_all_encryption_threads(encryption_threads);
 	    crypto_update(encrypt_buffer+encrypt_cursor, buffer_cursor-encrypt_cursor, args->enc);

@@ -38,7 +38,7 @@ endif
 
 DIR = $(shell pwd)
 
-APP = udtcat  #test
+APP = udtcat  
 APPOUT = uc
 
 all: $(APP)

@@ -35,7 +35,6 @@ void usage(){
 }
 
 void initialize_thread_args(thread_args *args){
-  
     args->ip = NULL;
     args->port = NULL;
     args->blast = 0;
@@ -48,11 +47,11 @@ void initialize_thread_args(thread_args *args){
 
 int main(int argc, char *argv[]){
 
-
     int opt;
     enum {NONE, SERVER, CLIENT};
     int operation = CLIENT;
 
+    // ----------- [ Read in options
     while ((opt = getopt (argc, argv, "l")) != -1){
 	switch (opt){
 	case 'l':
@@ -68,6 +67,7 @@ int main(int argc, char *argv[]){
     thread_args args;
     initialize_thread_args(&args);
 
+    // ----------- [ Setup ip
     if (operation == CLIENT){
 	if (optind < argc){
 	    if (strcmp(argv[optind], "localhost")){
@@ -83,22 +83,23 @@ int main(int argc, char *argv[]){
 	}
     }
 
+    // ----------- [ Check port input
     if (optind < argc){
 	args.port = strdup(argv[optind++]);
     } else {
 	cerr << "error: Please specify port num." << endl;
 	exit(1);
     }
-
+    
+    // ----------- [ Initialize crypto
     unsigned char* password = (unsigned char*) "12345";
     char* cipher = (char*) "aes-128";
-
     crypto enc(EVP_ENCRYPT, PASSPHRASE_SIZE, password, cipher);
     crypto dec(EVP_DECRYPT, PASSPHRASE_SIZE, password, cipher);
-	
     args.enc = &enc;
     args.dec = &dec;
 
+    // ----------- [ Spawn correct process
     if (operation == SERVER){
 	run_server(&args);
 

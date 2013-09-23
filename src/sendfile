@@ -1,0 +1,102 @@
+#!/bin/bash
+function Usage(){
+cat <<-ENDOFMESSAGE
+
+$0 [options] ip source destination
+
+options:
+
+    -p --port   specify port to use [default: 9000]
+    -u --user   specify username for ssh connection [default: current user]
+    -h --help   display this message
+
+ENDOFMESSAGE
+    exit 1
+}
+
+function error(){
+    echo "$*"
+    exit 1
+}
+
+function argCheck(){
+    if [ $1 -eq 0 -o "${1:0:1}" = "-" ]; then
+        error "The ${opt} option requires an argument."
+    fi
+}
+
+function getOpts() {
+    port=9000
+    user=`whoami`
+    verbose=0
+    argv=()
+    while [ $# -gt 0 ]
+    do
+        opt=$1
+        shift
+        case ${opt} in
+            -p|--port)
+		argCheck $#
+                port="$1"
+                shift;;
+            -u|--user)
+		argCheck $#
+                user="$1"
+                shift;;
+            -h|--help)
+                Usage;;
+	    -v|--verbose)
+		verbose=1;;
+            *)
+                if [ "${opt:0:1}" = "-" ]; then
+                    error "${opt}: unknown option."
+                fi
+                argv+=(${opt});;
+        esac
+    done 
+}
+
+getOpts $*
+
+ip="${argv[0]}"
+src="${argv[1]}"
+dest="${argv[2]}"
+
+if [ "$ip" = "" ]; then
+    error "Please specify the ip address"
+fi
+if [ "$src" = "" ]; then
+    error "Please specify the source file"
+fi
+if [ "$dest" = "" ]; then
+    error "Please specify the destination file"
+fi
+
+if [ "$verbose" == 1 ]; then
+    cat <<-ENDOFMESSAGE
+ Transferring 
+     local file		: $src
+     remote dest	: $dest
+     host		: $user@$ip
+     port		: $port
+ 
+ENDOFMESSAGE
+fi
+
+
+# echo "ssh jmiller@localhost 'uc -l 9000 > /home/jmiller/test2 & echo \$!;'"
+
+if [ "$verbose" == 1 ]; then
+    echo "Sending... "
+fi
+
+./uc $ip $port < $src &
+ssh $user@$ip "uc -l $port > $dest"
+
+if [ "$verbose" == 1 ]; then
+    echo "Done."
+    fs=`du -h $src`
+    echo "Original file size   : $fs"
+    fs=`ssh $user@$ip "du -h $dest"`
+    echo "Transferred file size: $fs"
+fi

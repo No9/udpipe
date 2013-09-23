@@ -2,7 +2,6 @@
 #include <openssl/crypto.h>
 
 
-
 #include <time.h>
 
 #include <limits.h>
@@ -70,7 +69,7 @@ static void threadid_func(CRYPTO_THREADID * id)
     CRYPTO_THREADID_set_numeric(id, THREAD_ID);
 }
 
-// Setups up the mutual exclusion for OpenSSL
+
 int THREAD_setup(void)
 {
     pris("Setting up threads");
@@ -206,15 +205,17 @@ int pass_to_enc_thread(pthread_t crypto_threads[N_CRYPTO_THREADS],
 
     pthread_join_disregard_ESRCH(crypto_threads[*curr_crypto_thread], *curr_crypto_thread);
 
-    // Initialize and set thread detached attribute
+    // ----------- [ Initialize and set thread detached attribute
     pthread_attr_t attr;
     pthread_attr_init(&attr);
     pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
 
+    // ----------- [ Setup thread
     e_args[*curr_crypto_thread].in = (uchar*) in;
     e_args[*curr_crypto_thread].len = len;
     e_args[*curr_crypto_thread].ctx = &c->ctx[*curr_crypto_thread];
 
+    // ----------- [ Spawn thread
     int ret = pthread_create(&crypto_threads[*curr_crypto_thread],
 			     &attr, crypto_update_thread, &e_args[*curr_crypto_thread]);
 
