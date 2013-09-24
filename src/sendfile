@@ -47,6 +47,9 @@ function getOpts() {
                 Usage;;
 	    -v|--verbose)
 		verbose=1;;
+	    -c|--remote-uc)
+		remote="$1"
+		shift;;
             *)
                 if [ "${opt:0:1}" = "-" ]; then
                     error "${opt}: unknown option."
@@ -83,15 +86,16 @@ if [ "$verbose" == 1 ]; then
 ENDOFMESSAGE
 fi
 
-
-# echo "ssh jmiller@localhost 'uc -l 9000 > /home/jmiller/test2 & echo \$!;'"
-
 if [ "$verbose" == 1 ]; then
     echo "Sending... "
 fi
 
-./uc $ip $port < $src &
-ssh $user@$ip "uc -l $port > $dest"
+# echo ssh $user@$ip "~/udtcat/src/uc -l $port > $dest"
+# ssh $user@$ip "~/udtcat/src/uc -l $port > $dest" &
+ssh jmiller@190.103.184.11 "~/udtcat/src/uc -l 9000 \> /home/jmiller/test2 & " &
+sleep 10
+head $src
+uc $ip $port < $src
 
 if [ "$verbose" == 1 ]; then
     echo "Done."

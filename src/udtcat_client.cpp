@@ -81,10 +81,15 @@ int run_client(thread_args *args)
 	return 1;
     }
     
+    
     if (UDT::ERROR == UDT::connect(client, peer->ai_addr, peer->ai_addrlen)) {
+	
+	// cerr << "connect: " << UDT::getlasterror().getErrorCode() << endl;
 	cerr << "connect: " << UDT::getlasterror().getErrorMessage() << endl;
+	    
 	return 1;
     }
+
 
     pthread_t rcvthread, sndthread;
     recv_args rcvargs;
