@@ -57,7 +57,10 @@ void* recvdata(void * _args)
     rs_args * args = (recv_args*)_args;
     
     if (args->verbose)
-	fprintf(stderr, "Initializing receive thread...\n");
+	fprintf(stderr, "[recv thread] Initializing receive thread...\n");
+
+    if (args->verbose && args->use_crypto)
+	fprintf(stderr, "[recv thread] Receive encryption is on.\n");
 
     UDTSOCKET recver = *args->usocket;
 
@@ -70,9 +73,8 @@ void* recvdata(void * _args)
 	exit(EXIT_FAILURE);
     }
 
-
     if (args->verbose)
-	fprintf(stderr, "Checking encryption...\n");
+	fprintf(stderr, "[recv thread] Checking encryption...\n");
 
     long remote_ssl_version = 0;
     int rs = UDT::recv(recver, (char*)&remote_ssl_version, sizeof(long), 0);
@@ -109,7 +111,7 @@ void* recvdata(void * _args)
     int crypto_cursor;
 
     if (args->verbose)
-	fprintf(stderr, "Listening on receive thread.\n");
+	fprintf(stderr, "[recv thread] Listening on receive thread.\n");
 
     if(args->use_crypto) {
 	while(true) {
@@ -206,10 +208,14 @@ void* senddata(void* _args)
 {
         
     rs_args * args = (rs_args*) _args;
-    UDTSOCKET client = *(UDTSOCKET*)args->usocket;
     
     if (args->verbose)
-	fprintf(stderr, "Initializing send thread...\n");
+	fprintf(stderr, "[send thread] Initializing send thread...\n");
+
+    UDTSOCKET client = *(UDTSOCKET*)args->usocket;
+
+    if (args->verbose && args->use_crypto)
+	fprintf(stderr, "[send thread] Send encryption is on.\n");
 
     char* outdata = (char*)malloc(BUFF_SIZE*sizeof(char));
     int crypto_buff_len = BUFF_SIZE / N_CRYPTO_THREADS;
@@ -218,7 +224,7 @@ void* senddata(void* _args)
     int bytes_read;
 
     if (args->verbose)
-	fprintf(stderr, "Sending encryption status...\n");
+	fprintf(stderr, "[send thread] Sending encryption status...\n");
 
     long local_openssl_version;
     if (args->use_crypto)
@@ -230,7 +236,7 @@ void* senddata(void* _args)
 
 
     if (args->verbose)
-	fprintf(stderr, "Send thread listening on stdin.\n");
+	fprintf(stderr, "[send thread] Send thread listening on stdin.\n");
 
     if (args->use_crypto){
 

@@ -40,7 +40,7 @@ int run_client(thread_args *args)
 {
 
     if (args->verbose)
-	fprintf(stderr, "Running client...\n");
+	fprintf(stderr, "[client] Running client...\n");
 
     char *ip = args->ip; 
     char *port = args->port;
@@ -71,7 +71,7 @@ int run_client(thread_args *args)
     
 
     if (args->verbose)
-	fprintf(stderr, "Creating socket...\n");
+	fprintf(stderr, "[client] Creating socket...\n");
 
     
     UDTSOCKET client;
@@ -93,7 +93,7 @@ int run_client(thread_args *args)
     }
 
     if (args->verbose)
-	fprintf(stderr, "Connecting to server...\n");
+	fprintf(stderr, "[client] Connecting to server...\n");
     
     if (UDT::ERROR == UDT::connect(client, peer->ai_addr, peer->ai_addrlen)) {
 	
@@ -104,7 +104,7 @@ int run_client(thread_args *args)
     }
 
     if (args->verbose)
-	fprintf(stderr, "Creating receive thread...\n");
+	fprintf(stderr, "[client] Creating receive thread...\n");
 
     pthread_t rcvthread, sndthread;
     rs_args rcvargs;
@@ -118,7 +118,7 @@ int run_client(thread_args *args)
 
 
     if (args->verbose)
-	fprintf(stderr, "Creating send thread...\n");
+	fprintf(stderr, "[client] Creating send thread...\n");
 
 
     rs_args send_args;
@@ -138,9 +138,6 @@ int run_client(thread_args *args)
     }
 
     pthread_create(&sndthread, NULL, senddata, &send_args);
-
-    if (args->verbose)
-	fprintf(stderr, "Setup complete.\n");
 
     void * retval;
     pthread_join(sndthread, &retval);

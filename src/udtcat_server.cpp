@@ -36,9 +36,8 @@ int buffer_size;
 
 int run_server(thread_args *args){
 
-
     if (args->verbose)
-	fprintf(stderr, "Running server...\n");
+	fprintf(stderr, "[server] Running server...\n");
 
     char *port = args->port;
     int blast = args->blast;
@@ -48,7 +47,7 @@ int run_server(thread_args *args){
 
 
     if (args->verbose)
-	fprintf(stderr, "Starting UDT...\n");
+	fprintf(stderr, "[server] Starting UDT...\n");
     UDT::startup();
 
     addrinfo hints;
@@ -71,7 +70,7 @@ int run_server(thread_args *args){
 
 
     if (args->verbose)
-	fprintf(stderr, "Creating socket...\n");
+	fprintf(stderr, "[server] Creating socket...\n");
 
     UDTSOCKET serv;
     serv = UDT::socket(res->ai_family, res->ai_socktype, res->ai_protocol);
@@ -86,7 +85,7 @@ int run_server(thread_args *args){
 
     
     if (args->verbose)
-	fprintf(stderr, "Binding socket...\n");
+	fprintf(stderr, "[server] Binding socket...\n");
 
 
     if (UDT::ERROR == UDT::bind(serv, res->ai_addr, res->ai_addrlen)) {
@@ -108,7 +107,7 @@ int run_server(thread_args *args){
 
 
     if (args->verbose)
-	fprintf(stderr, "Listening for client...\n");
+	fprintf(stderr, "[server] Listening for client...\n");
 
     if (UDT::INVALID_SOCK == (recver = UDT::accept(serv,
 						   (sockaddr*)&clientaddr, &addrlen))) {
@@ -118,7 +117,7 @@ int run_server(thread_args *args){
     }
 
     if (args->verbose)
-	fprintf(stderr, "New client connection...\n");
+	fprintf(stderr, "[server] New client connection...\n");
 
     char clienthost[NI_MAXHOST];
     char clientservice[NI_MAXSERV];
@@ -128,7 +127,7 @@ int run_server(thread_args *args){
 
 
     if (args->verbose)
-	fprintf(stderr, "Creating receve thread...\n");
+	fprintf(stderr, "[server] Creating receve thread...\n");
 
     rs_args rcvargs;
     rcvargs.usocket = new UDTSOCKET(recver);
@@ -140,7 +139,7 @@ int run_server(thread_args *args){
     pthread_detach(rcvthread);
 
     if (args->verbose)
-	fprintf(stderr, "Creating send thread.\n");
+	fprintf(stderr, "[server] Creating send thread.\n");
 
     rs_args send_args;
     send_args.usocket = new UDTSOCKET(recver);
