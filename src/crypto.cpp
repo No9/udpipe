@@ -25,10 +25,6 @@
 #define MUTEX_UNLOCK(x)	   pthread_mutex_unlock(&x)
 #define THREAD_ID	   pthread_self()
 
-pthread_mutex_t c_lock;
-
-int current_cipher = 0;
-
 #define AES_BLOCK_SIZE 8
 
 static MUTEX_TYPE *mutex_buf = NULL;
@@ -72,6 +68,7 @@ static void threadid_func(CRYPTO_THREADID * id)
 
 int THREAD_setup(void)
 {
+    
     pris("Setting up threads");
     mutex_buf = (MUTEX_TYPE*)malloc(CRYPTO_num_locks()*sizeof(MUTEX_TYPE));
   
@@ -110,34 +107,15 @@ int THREAD_cleanup(void)
 
 }
 
-void *crypto_update_thread(void* _args)
+
+int crypto_update(char* in, char* out, int len, crypto *c)
 {
 
-    e_thread_args* args = (e_thread_args*)_args;
     int evp_outlen = 0;
-    
-    if(!EVP_CipherUpdate(args->ctx, args->in, &evp_outlen, args->in, args->len)){
-    	fprintf(stderr, "encryption error\n");
-    	exit(EXIT_FAILURE);
-    }
+    int i = c->get_thread_id();
+    c->increment_thread_id();
+    c->lock_data(i);
 
-    if (evp_outlen-args->len){
-    	fprintf(stderr, "Did not encrypt full length of data [%d-%d]", 
-    		evp_outlen, args->len);
-    	exit(1);
-    }
-
-    args->len = evp_outlen;
-
-    pthread_exit(NULL);
-  
-}
-
-int crypto_update(char* in, int len, crypto *c)
-{
-
-
-    int i = 0, evp_outlen = 0;
     if (len == 0) {
 	
 	// FINALIZE CIPHER
@@ -149,7 +127,7 @@ int crypto_update(char* in, int len, crypto *c)
     } else {
 
     	// [EN][DE]CRYPT
-    	if(!EVP_CipherUpdate(&c->ctx[0], (uchar*)in, &evp_outlen, (uchar*)in, len)){
+    	if(!EVP_CipherUpdate(&c->ctx[i], (uchar*)in, &evp_outlen, (uchar*)in, len)){
     	    fprintf(stderr, "encryption error\n");
     	    exit(EXIT_FAILURE);
     	}
@@ -163,75 +141,102 @@ int crypto_update(char* in, int len, crypto *c)
 
     }
 
+    c->unlock_data(i);
+
     return evp_outlen;
 
 }
 
-int joined[N_CRYPTO_THREADS];
 
-int pthread_join_disregard_ESRCH(pthread_t thread, int thread_id){
+void *crypto_update_thread(void* _args)
+{
 
-    if (joined[thread_id])
-	return 0;
+    int evp_outlen = 0;
 
-    int ret = pthread_join(thread, NULL);
-
-    pthread_mutex_lock(&c_lock);
-    joined[thread_id] = 1;
-    pthread_mutex_unlock(&c_lock);
-
-    if (ret){
-	if (ret != ESRCH){
-	    fprintf(stderr, "Unable to join encryption thread: %d\n", ret);
-	    exit(1);
-	}
-    }
-
-    return 0;
-
-}
-
-int join_all_encryption_threads(pthread_t threads[N_CRYPTO_THREADS]){
-    for (int i = 0; i < N_CRYPTO_THREADS; i++)
-	pthread_join_disregard_ESRCH(threads[i], i);
-    return 0;
-}
-
-int pass_to_enc_thread(pthread_t crypto_threads[N_CRYPTO_THREADS], 
-		       e_thread_args * e_args,
-		       int * curr_crypto_thread,
-		       char* in, int len, 
-		       crypto*c){
-
-    pthread_join_disregard_ESRCH(crypto_threads[*curr_crypto_thread], *curr_crypto_thread);
-
-    // ----------- [ Initialize and set thread detached attribute
-    pthread_attr_t attr;
-    pthread_attr_init(&attr);
-    pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
-
-    // ----------- [ Setup thread
-    e_args[*curr_crypto_thread].in = (uchar*) in;
-    e_args[*curr_crypto_thread].len = len;
-    e_args[*curr_crypto_thread].ctx = &c->ctx[*curr_crypto_thread];
-
-    // ----------- [ Spawn thread
-    int ret = pthread_create(&crypto_threads[*curr_crypto_thread],
-			     &attr, crypto_update_thread, &e_args[*curr_crypto_thread]);
-
-    pthread_mutex_lock(&c_lock);
-    joined[*curr_crypto_thread] = 0;
-    pthread_mutex_unlock(&c_lock);
-    
-    if (ret){
-	fprintf(stderr, "Unable to create thread: %d\n", ret);
+    if (!_args){
+	fprintf(stderr, "Null argument passed to crypto_update_thread\n");
 	exit(1);
     }
 
-    *curr_crypto_thread = *curr_crypto_thread+1;
+    e_thread_args* args = (e_thread_args*)_args;
+    crypto *c = (crypto*)args->c;
+    
+    while (1){
 
-    if (*curr_crypto_thread>=N_CRYPTO_THREADS)
-	*curr_crypto_thread = 0;
+	// fprintf(stderr, "[%d] Waiting for thread_ready %d\n", pthread_self(), args->thread_id);
+	c->wait_thread_ready(args->thread_id);
+
+	int len = args->len;
+
+	int total = 0;
+	while (total < args->len){
+
+	    if(!EVP_CipherUpdate(&c->ctx[args->thread_id], 
+				 args->in+total, &evp_outlen, 
+				 args->out+total, args->len-total)){
+		fprintf(stderr, "encryption error\n");
+		exit(EXIT_FAILURE);
+	    }
+	    total += evp_outlen;
+
+	}
+
+	if (len != args->len){
+	    fprintf(stderr, "error: The length changed during encryption.\n\n");
+	    exit(1);
+	}
+
+	if (total != args->len){
+	    fprintf(stderr, "error: Did not encrypt full length of data %d [%d-%d]", 
+		    args->thread_id, total, args->len);
+ 	    exit(1);
+	}
+	
+	// fprintf(stderr, "[%d] Done with thread %d\n", pthread_self(), args->thread_id);	
+	c->unlock_data(args->thread_id);
+	
+    }
+
+    return NULL;
+    
+}
+
+int join_all_encryption_threads(crypto *c){
+
+    if (!c){
+	fprintf(stderr, "error: join_all_encryption_threads passed null pointer\n");
+	return 0;
+    }
+    
+    for (int i = 0; i < N_CRYPTO_THREADS; i++){
+	c->lock_data(i);
+	c->unlock_data(i);
+    }
+    
+    return 0;
+
+}
+
+int pass_to_enc_thread(char* in, char*out, int len, crypto*c){
+
+    if (len == 0)
+	return 0; 
+
+    int thread_id = c->get_thread_id();
+    c->lock_data(thread_id);
+
+    c->increment_thread_id();
+
+    // fprintf(stderr, "[%d] Waiting on data %d in pass\n", getpid(), thread_id);
+
+    c->e_args[thread_id].in = (uchar*) in;
+    c->e_args[thread_id].out = (uchar*) out;
+    c->e_args[thread_id].len = len;
+
+    // fprintf(stderr, "[%d] posting thread %d in pass\n", getpid(), thread_id);
+    c->set_thread_ready(thread_id);
+
+    fflush(stderr);
 
     return 0;
 }

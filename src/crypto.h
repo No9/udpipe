@@ -18,17 +18,14 @@ and limitations under the License.
 #ifndef CRYPTO_H
 #define CRYPTO_H
 
-#define N_CRYPTO_THREADS 8
+#define N_CRYPTO_THREADS 16
 #define USE_CRYPTO 1
-
 
 #define PASSPHRASE_SIZE 32
 #define HEX_PASSPHRASE_SIZE 64
 #define EVP_ENCRYPT 1
 #define EVP_DECRYPT 0
 #define CTR_MODE 1
-
-
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -39,6 +36,7 @@ and limitations under the License.
 #include <limits.h>
 #include <iostream>
 #include <unistd.h>
+#include <semaphore.h>
 
 #define MUTEX_TYPE		pthread_mutex_t
 #define MUTEX_SETUP(x)		pthread_mutex_init(&(x), NULL)
@@ -57,21 +55,48 @@ using namespace std;
 
 typedef unsigned char uchar;
 
+typedef struct e_thread_args
+{
+    uchar *in;
+    uchar *out;
+    int len;
+    EVP_CIPHER_CTX *ctx;
+    int idle;
+    void* c;
+    int thread_id;
+} e_thread_args;
+
+void *crypto_update_thread(void* _args);
+
 class crypto
 {
     private:
     //BF_KEY key;
     unsigned char ivec[ 1024 ];
     int direction;
+    pthread_mutex_t c_lock[N_CRYPTO_THREADS];
+    pthread_mutex_t thread_ready[N_CRYPTO_THREADS];
 
+    pthread_mutex_t id_lock;
 
     int passphrase_size;
     int hex_passphrase_size;
+
+    int thread_id;
+
+
  public:
+    
+
        
     // EVP stuff
-    int thread_id;
+
     EVP_CIPHER_CTX ctx[N_CRYPTO_THREADS];
+
+    e_thread_args e_args[N_CRYPTO_THREADS];
+ 
+    pthread_t threads[N_CRYPTO_THREADS];
+
 
 
     crypto(int direc, int len, unsigned char* password, char *encryption_type)
@@ -142,9 +167,72 @@ class crypto
 	    }
 	    
 	}
+	
+
+	pthread_mutex_init(&id_lock, NULL);
+	for (int i = 0; i < N_CRYPTO_THREADS; i++){
+	    pthread_mutex_init(&c_lock[i], NULL);
+	    pthread_mutex_init(&thread_ready[i], NULL);
+	    pthread_mutex_lock(&thread_ready[i]);
+	}
+	
+	// ----------- [ Initialize and set thread detached attribute
+	pthread_attr_t attr;
+	pthread_attr_init(&attr);
+	pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
+
+	thread_id = 0;
+
+	for (int i = 0; i < N_CRYPTO_THREADS; i++){
+
+	    e_args[i].thread_id = i;
+	    e_args[i].ctx = &ctx[i];
+	    e_args[i].c = this;
+
+	    int ret = pthread_create(&threads[i],
+				 &attr, &crypto_update_thread, 
+				 &e_args[i]);
+    
+	    if (ret){
+		fprintf(stderr, "Unable to create thread: %d\n", ret);
+	    }
+
+
+	}
 
     }
 
+    int get_thread_id(){
+	pthread_mutex_lock(&id_lock);
+	int id = thread_id;
+	pthread_mutex_unlock(&id_lock);
+	return id;
+    }
+
+    int increment_thread_id(){
+	pthread_mutex_lock(&id_lock);
+	thread_id++;
+	if (thread_id >= N_CRYPTO_THREADS)
+	    thread_id = 0;
+	pthread_mutex_unlock(&id_lock);
+	return 1;
+    }
+
+    int set_thread_ready(int thread_id){
+	return pthread_mutex_unlock(&thread_ready[thread_id]);
+    }
+
+    int wait_thread_ready(int thread_id){
+	return pthread_mutex_lock(&thread_ready[thread_id]);
+    }
+    
+    int lock_data(int thread_id){
+	return pthread_mutex_lock(&c_lock[thread_id]);
+    }
+    
+    int unlock_data(int thread_id){
+	return pthread_mutex_unlock(&c_lock[thread_id]);
+    }
 
 
 //    ~crypto()
@@ -153,6 +241,8 @@ class crypto
 //        //TODO: find out why this is bad and breaks things
 //        EVP_CIPHER_CTX_cleanup(&ctx);
 //    }
+
+
 
 
     // Returns how much has been encrypted and will call encrypt final when
@@ -182,27 +272,10 @@ class crypto
 
 
 
-typedef struct e_thread_args
-{
-    uchar *in;
-    int len;
-    crypto *c;
-    EVP_CIPHER_CTX *ctx;
- 
+int crypto_update(char* in, char* data, int len, crypto *c);
 
-} e_thread_args;
-
-int crypto_update(char* in, int len, crypto *c);
-void *crypto_update_thread(void* _args);
-int pthread_join_disregard_ESRCH(pthread_t thread, int thread_id);
-int join_all_encryption_threads(pthread_t threads[N_CRYPTO_THREADS]);
-int pass_to_enc_thread(pthread_t crypto_threads[N_CRYPTO_THREADS], 
-		       e_thread_args * e_args,
-		       int * curr_crypto_thread,
-		       char* in, int len, 
-		       crypto*c);
-
-
+int join_all_encryption_threads(crypto *c);
+int pass_to_enc_thread(char* in, char* out, int len, crypto*c);
 
 
 #endif
