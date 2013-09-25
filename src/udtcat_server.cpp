@@ -36,12 +36,19 @@ int buffer_size;
 
 int run_server(thread_args *args){
 
+
+    if (args->verbose)
+	fprintf(stderr, "Running server...\n");
+
     char *port = args->port;
     int blast = args->blast;
     int udt_buff = args->udt_buff;
     int udp_buff = args->udp_buff; // 67108864;
     int mss = args->mss;
 
+
+    if (args->verbose)
+	fprintf(stderr, "Starting UDT...\n");
     UDT::startup();
 
     addrinfo hints;
@@ -62,8 +69,11 @@ int run_server(thread_args *args){
 
     buffer_size = udt_buff;
 
-    UDTSOCKET serv;
 
+    if (args->verbose)
+	fprintf(stderr, "Creating socket...\n");
+
+    UDTSOCKET serv;
     serv = UDT::socket(res->ai_family, res->ai_socktype, res->ai_protocol);
 
     // UDT Options
@@ -73,6 +83,10 @@ int run_server(thread_args *args){
     UDT::setsockopt(serv, 0, UDT_MSS, &mss, sizeof(int));
     UDT::setsockopt(serv, 0, UDT_RCVBUF, &udt_buff, sizeof(int));
     UDT::setsockopt(serv, 0, UDP_RCVBUF, &udp_buff, sizeof(int));
+
+    
+    if (args->verbose)
+	fprintf(stderr, "Binding socket...\n");
 
 
     if (UDT::ERROR == UDT::bind(serv, res->ai_addr, res->ai_addrlen)) {
@@ -92,38 +106,52 @@ int run_server(thread_args *args){
     UDTSOCKET recver;
     pthread_t rcvthread, sndthread;
 
-    while (1){
 
-	if (UDT::INVALID_SOCK == (recver = UDT::accept(serv,
-							  (sockaddr*)&clientaddr, &addrlen))) {
+    if (args->verbose)
+	fprintf(stderr, "Listening for client...\n");
 
-	    cerr << "accept: " << UDT::getlasterror().getErrorMessage() << endl;
-	    return 1;
-	}
+    if (UDT::INVALID_SOCK == (recver = UDT::accept(serv,
+						   (sockaddr*)&clientaddr, &addrlen))) {
 
-	char clienthost[NI_MAXHOST];
-	char clientservice[NI_MAXSERV];
-	getnameinfo((sockaddr *)&clientaddr, addrlen, clienthost,
-		    sizeof(clienthost), clientservice, sizeof(clientservice),
-		    NI_NUMERICHOST|NI_NUMERICSERV);
-
-
-	recv_args rcvargs;
-	rcvargs.usocket = new UDTSOCKET(recver);
-	rcvargs.dec = args->dec;
-
-	pthread_create(&rcvthread, NULL, recvdata, &rcvargs);
-	pthread_detach(rcvthread);
-
-	snd_args send_args;
-	send_args.usocket = new UDTSOCKET(recver);
-	send_args.enc = args->enc;
-
-	// pthread_create(&sndthread, NULL, senddata, new UDTSOCKET(recver));
-	pthread_create(&sndthread, NULL, senddata, &send_args);
-	pthread_detach(sndthread);
-
+	cerr << "accept: " << UDT::getlasterror().getErrorMessage() << endl;
+	return 1;
     }
+
+    if (args->verbose)
+	fprintf(stderr, "New client connection...\n");
+
+    char clienthost[NI_MAXHOST];
+    char clientservice[NI_MAXSERV];
+    getnameinfo((sockaddr *)&clientaddr, addrlen, clienthost,
+		sizeof(clienthost), clientservice, sizeof(clientservice),
+		NI_NUMERICHOST|NI_NUMERICSERV);
+
+
+    if (args->verbose)
+	fprintf(stderr, "Creating receve thread...\n");
+
+    rs_args rcvargs;
+    rcvargs.usocket = new UDTSOCKET(recver);
+    rcvargs.use_crypto = args->use_crypto;
+    rcvargs.verbose = args->verbose;
+    rcvargs.c = args->dec;
+
+    pthread_create(&rcvthread, NULL, recvdata, &rcvargs);
+    pthread_detach(rcvthread);
+
+    if (args->verbose)
+	fprintf(stderr, "Creating send thread.\n");
+
+    rs_args send_args;
+    send_args.usocket = new UDTSOCKET(recver);
+    send_args.use_crypto = args->use_crypto;
+    send_args.verbose = args->verbose;
+    send_args.c = args->enc;
+
+    // pthread_create(&sndthread, NULL, senddata, new UDTSOCKET(recver));
+    pthread_create(&sndthread, NULL, senddata, &send_args);
+
+    pthread_join(sndthread, NULL);
 
     UDT::close(serv);
 

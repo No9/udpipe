@@ -31,27 +31,12 @@ and limitations under the License.
 
 #define BUFF_SIZE 67108864
 
-typedef struct recv_args{
+typedef struct rs_args{
     UDTSOCKET*usocket;
-    crypto *dec;
+    crypto *c;
+    int use_crypto;
+    int verbose;
 } recv_args;
-
-
-typedef struct snd_args{
-    UDTSOCKET*usocket;
-    crypto *enc;
-} snd_args;
-
-
-
-typedef struct send_buf_args{
-    UDTSOCKET client; 
-    char* buf;
-    int size;
-    int flags;
-    int idle;
-} send_buf_args;
-
 
 typedef struct thread_args{
     crypto *enc;
@@ -63,7 +48,8 @@ typedef struct thread_args{
     size_t udt_buff;
     size_t udp_buff;
     int mss;
-  
+    int use_crypto;
+    int verbose;
 } thread_args;
 
 void* send_buf_threaded(void*_args);

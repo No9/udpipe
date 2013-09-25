@@ -39,6 +39,9 @@ using std::endl;
 int run_client(thread_args *args)
 {
 
+    if (args->verbose)
+	fprintf(stderr, "Running client...\n");
+
     char *ip = args->ip; 
     char *port = args->port;
     int blast = args->blast;
@@ -46,7 +49,11 @@ int run_client(thread_args *args)
     int udt_buff = args->udt_buff;
     int udp_buff = args->udp_buff; // 67108864;
     int mss = args->mss;
-  
+
+
+    if (args->verbose)
+	fprintf(stderr, "Starting UDT...\n");
+
     UDT::startup();
 
     struct addrinfo hints, *local, *peer;
@@ -62,8 +69,12 @@ int run_client(thread_args *args)
 	return 1;
     }
     
-    UDTSOCKET client;
 
+    if (args->verbose)
+	fprintf(stderr, "Creating socket...\n");
+
+    
+    UDTSOCKET client;
     client = UDT::socket(local->ai_family, local->ai_socktype, local->ai_protocol);
 
     // UDT Options
@@ -80,7 +91,9 @@ int run_client(thread_args *args)
 	cerr << "incorrect server/peer address. " << ip << ":" << port << endl;
 	return 1;
     }
-    
+
+    if (args->verbose)
+	fprintf(stderr, "Connecting to server...\n");
     
     if (UDT::ERROR == UDT::connect(client, peer->ai_addr, peer->ai_addrlen)) {
 	
@@ -90,18 +103,29 @@ int run_client(thread_args *args)
 	return 1;
     }
 
+    if (args->verbose)
+	fprintf(stderr, "Creating receive thread...\n");
 
     pthread_t rcvthread, sndthread;
-    recv_args rcvargs;
+    rs_args rcvargs;
     rcvargs.usocket = new UDTSOCKET(client);
-    rcvargs.dec = args->dec;
+    rcvargs.use_crypto = args->use_crypto;
+    rcvargs.verbose = args->verbose;
+    rcvargs.c = args->dec;
 
     pthread_create(&rcvthread, NULL, recvdata, &rcvargs);
     pthread_detach(rcvthread);
 
-    snd_args send_args;
+
+    if (args->verbose)
+	fprintf(stderr, "Creating send thread...\n");
+
+
+    rs_args send_args;
     send_args.usocket = new UDTSOCKET(client);
-    send_args.enc = args->enc;
+    send_args.use_crypto = args->use_crypto;
+    send_args.verbose = args->verbose;
+    send_args.c = args->enc;
 
     freeaddrinfo(peer);
 
@@ -114,6 +138,9 @@ int run_client(thread_args *args)
     }
 
     pthread_create(&sndthread, NULL, senddata, &send_args);
+
+    if (args->verbose)
+	fprintf(stderr, "Setup complete.\n");
 
     void * retval;
     pthread_join(sndthread, &retval);

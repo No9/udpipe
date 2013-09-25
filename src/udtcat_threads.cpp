@@ -54,79 +54,103 @@ void print_bytes(const void *object, size_t size)
 void* recvdata(void * _args)
 {
 
+    rs_args * args = (recv_args*)_args;
+    
+    if (args->verbose)
+	fprintf(stderr, "Initializing receive thread...\n");
 
-
-    recv_args * args = (recv_args*)_args;
     UDTSOCKET recver = *args->usocket;
-
 
     int crypto_buff_len = BUFF_SIZE / N_CRYPTO_THREADS;
     int buffer_cursor;
-    char* indata;
 
-    if (USE_CRYPTO){
+    char* indata = (char*) malloc(BUFF_SIZE*sizeof(char));
+    if (!indata){
+	fprintf(stderr, "Unable to allocate decryption buffer");
+	exit(EXIT_FAILURE);
+    }
 
-	long remote_ssl_version = 0;
-	
-	UDT::recv(recver, (char*)&remote_ssl_version, sizeof(long), 0);
+
+    if (args->verbose)
+	fprintf(stderr, "Checking encryption...\n");
+
+    long remote_ssl_version = 0;
+    int rs = UDT::recv(recver, (char*)&remote_ssl_version, sizeof(long), 0);
+
+    if (UDT::ERROR == rs) {
+	if (UDT::getlasterror().getErrorCode() != ECONNLOST)
+	    cerr << "recv:" << UDT::getlasterror().getErrorMessage() << 
+		"Unable to determine remote crypto method" << endl;
+	exit(1);    
+    }
+
+    if (args->use_crypto){
+	if (remote_ssl_version == 0){
+	    cerr << "recv: Encryption mismatch: local[None] to remote[OpenSSL]" << endl;
+	    UDT::close(recver);
+	    exit(1);
+	}
 
 	if (remote_ssl_version != OPENSSL_VERSION_NUMBER){
-	    fprintf(stderr, "warning: OpenSSL versions do not match. local [%li] -> remote [%li].\n",
-		    OPENSSL_VERSION_NUMBER, remote_ssl_version);
+	    // versions don't match
 	}
 
-	indata = (char*) malloc(BUFF_SIZE*sizeof(char));
-	if (!indata){
-	    fprintf(stderr, "Unable to allocate decryption buffer");
-	    exit(EXIT_FAILURE);
+    } else {
+	if (remote_ssl_version != 0) {
+	    cerr << "recv: Encryption mismatch: local[OpenSSL] to remote[None]" << endl;
+	    UDT::close(recver);
+	    exit(1);
 	}
-
-    }
+    }	    
 
     int new_block = 1;
     int block_size = 0;
     int offset = sizeof(int)/sizeof(char);
     int crypto_cursor;
 
-    while(true) {
-	int rs;
+    if (args->verbose)
+	fprintf(stderr, "Listening on receive thread.\n");
 
-	if (new_block){
+    if(args->use_crypto) {
+	while(true) {
+	    int rs;
 
-	    block_size = 0;
-	    rs = UDT::recv(recver, (char*)&block_size, offset, 0);
+	    if (new_block){
+
+		block_size = 0;
+		rs = UDT::recv(recver, (char*)&block_size, offset, 0);
+
+		if (UDT::ERROR == rs) {
+		    if (UDT::getlasterror().getErrorCode() != ECONNLOST)
+			cerr << "recv:" << UDT::getlasterror().getErrorMessage() << endl;
+		    exit(1);
+		}
+
+		new_block = 0;
+		buffer_cursor = 0;
+		crypto_cursor = 0;
+
+	    }	
+	
+	    rs = UDT::recv(recver, indata+buffer_cursor, 
+			   block_size-buffer_cursor, 0);
+
 
 	    if (UDT::ERROR == rs) {
-		if (UDT::getlasterror().getErrorCode() != ECONNLOST)
-		    cerr << "recv:" << UDT::getlasterror().getErrorMessage() << endl;
-		exit(1);
+		UDT::close(recver);
+		return NULL;
 	    }
 
-	    new_block = 0;
-	    buffer_cursor = 0;
-	    crypto_cursor = 0;
 
-	}	
-	
-	rs = UDT::recv(recver, indata+buffer_cursor, 
-		       block_size-buffer_cursor, 0);
+	    int written_bytes;
 
-
-	if (UDT::ERROR == rs) {
-	    UDT::close(recver);
-	    return NULL;
-	}
-
-
-	int written_bytes;
-	if(USE_CRYPTO) {
 	    buffer_cursor += rs;
 
 	    // Decrypt any full encryption buffer sectors
 	    while (crypto_cursor + crypto_buff_len < buffer_cursor){
 
 		pass_to_enc_thread(indata+crypto_cursor, indata+crypto_cursor, 
-				   crypto_buff_len, args->dec);
+				   crypto_buff_len, args->c);
 		crypto_cursor += crypto_buff_len;
 
 	    }
@@ -136,10 +160,10 @@ void* recvdata(void * _args)
 		
 		int size = buffer_cursor - crypto_cursor;
 		pass_to_enc_thread(indata+crypto_cursor, indata+crypto_cursor, 
-				   size, args->dec);
+				   size, args->c);
 		crypto_cursor += size;
 
-		join_all_encryption_threads(args->dec);
+		join_all_encryption_threads(args->c);
 
 		written_bytes = write(fileno(stdout), indata, block_size);
 
@@ -147,12 +171,29 @@ void* recvdata(void * _args)
 		crypto_cursor = 0;
 		new_block = 1;
 
+
+	    
+	    
 	    } 
-	    
-	    
-	} else {
-	    written_bytes = write(fileno(stdout), indata, rs);
 	}
+
+    } else { 
+
+	int written_bytes, rs;
+	while (1){
+
+	    rs = UDT::recv(recver, indata, BUFF_SIZE, 0);
+
+	    if (UDT::ERROR == rs) {
+		UDT::close(recver);
+		return NULL;
+	    }
+
+	    written_bytes = write(fileno(stdout), indata, rs);	
+	    
+	}
+	
+
     }
 
     UDT::close(recver);
@@ -160,147 +201,114 @@ void* recvdata(void * _args)
 
 }
 
-int send_buf(UDTSOCKET client, char* buf, int size, int flags)
-{
-
-    int ssize = 0;
-    int ss;
-    while (ssize < size) {
-	if (UDT::ERROR == (ss = UDT::send(client, buf + ssize, size - ssize, 0))) {
-	    cerr << "send:" << UDT::getlasterror().getErrorMessage() << endl;
-	    break;
-	}
-
-	ssize += ss;
-    }
-
-    if (ssize < size)
-	pris("Did not send complete buffer");
-
-    if (UDT::ERROR == ss) {
-	cerr << "send:" << UDT::getlasterror().getErrorMessage() << endl;
-	exit(EXIT_FAILURE);
-    }
-
-    return ss;
-
-}
-
 
 void* senddata(void* _args)
 {
         
-    snd_args * args = (snd_args*) _args;
+    rs_args * args = (rs_args*) _args;
     UDTSOCKET client = *(UDTSOCKET*)args->usocket;
+    
+    if (args->verbose)
+	fprintf(stderr, "Initializing send thread...\n");
 
     char* outdata = (char*)malloc(BUFF_SIZE*sizeof(char));
     int crypto_buff_len = BUFF_SIZE / N_CRYPTO_THREADS;
-
     
     int	offset = sizeof(int)/sizeof(char);
     int bytes_read;
 
-    if (USE_CRYPTO){
+    if (args->verbose)
+	fprintf(stderr, "Sending encryption status...\n");
 
-	long local_openssl_version = OPENSSL_VERSION_NUMBER;
-	UDT::send(client, (char*)&local_openssl_version, sizeof(long), 0);
+    long local_openssl_version;
+    if (args->use_crypto)
+	local_openssl_version = OPENSSL_VERSION_NUMBER;
+    else
+	local_openssl_version = 0;
 
-    }
+    UDT::send(client, (char*)&local_openssl_version, sizeof(long), 0);
 
 
-    while(true) {
-	int ss;
+    if (args->verbose)
+	fprintf(stderr, "Send thread listening on stdin.\n");
 
-	bytes_read = read(fileno(stdin), outdata+offset, BUFF_SIZE);
+    if (args->use_crypto){
+
+	while(true) {
+	    int ss;
+
+	    bytes_read = read(fileno(stdin), outdata+offset, BUFF_SIZE);
 	
-	if(bytes_read < 0){
-	    UDT::close(client);
-	    return NULL;
-	}
-
-	if(bytes_read == 0) {
-	    UDT::close(client);
-	    return NULL;
-	}
-	
-
-	if(USE_CRYPTO){
-
-	    *((int*)outdata) = bytes_read;
-	    int crypto_cursor = 0;
-
-	    while (crypto_cursor < bytes_read){
-		int size = min(crypto_buff_len, bytes_read-crypto_cursor);
-		pass_to_enc_thread(outdata+crypto_cursor+offset, 
-				   outdata+crypto_cursor+offset, 
-				   size, args->enc);
-		
-		crypto_cursor += size;
-		
-	    }
-	    
-	    join_all_encryption_threads(args->enc);
-
-	    bytes_read += offset;
-
-	}
-
-	int ssize = 0;
-	while(ssize < bytes_read) {
-	    
-	    if (UDT::ERROR == (ss = UDT::send(client, outdata + ssize, 
-					      bytes_read - ssize, 0))) {
-		
+	    if(bytes_read < 0){
+		UDT::close(client);
 		return NULL;
 	    }
 
-	    ssize += ss;
+	    if(bytes_read == 0) {
+		UDT::close(client);
+		return NULL;
+	    }
+	
+
+	    if(args->use_crypto){
+
+		*((int*)outdata) = bytes_read;
+		int crypto_cursor = 0;
+
+		while (crypto_cursor < bytes_read){
+		    int size = min(crypto_buff_len, bytes_read-crypto_cursor);
+		    pass_to_enc_thread(outdata+crypto_cursor+offset, 
+				       outdata+crypto_cursor+offset, 
+				       size, args->c);
+		
+		    crypto_cursor += size;
+		
+		}
+	    
+		join_all_encryption_threads(args->c);
+
+		bytes_read += offset;
+
+	    }
+
+	    int ssize = 0;
+	    while(ssize < bytes_read) {
+	    
+		if (UDT::ERROR == (ss = UDT::send(client, outdata + ssize, 
+						  bytes_read - ssize, 0))) {
+		    fprintf(stderr, "send: Failed to send buffer.\n");
+		    return NULL;
+		}
+
+		ssize += ss;
+
+	    }
+
 
 	}
 
+    } else {
+	
+	while (1) {
+	    bytes_read = read(fileno(stdin), outdata, BUFF_SIZE);
+	    int ssize = 0;
+	    int ss;
+	    while(ssize < bytes_read) {
 
+		if (UDT::ERROR == (ss = UDT::send(client, outdata + ssize, 
+						  bytes_read - ssize, 0))) {
+		    fprintf(stderr, "send: Failed to send buffer.\n");
+		    return NULL;
+		}
+
+		ssize += ss;
+
+	    }
+
+	}	
     }
-
 
     UDT::close(client);
 
     return NULL;
-}
-
-void* send_buf_threaded(void*_args)
-{
-  
-    send_buf_args *args = (send_buf_args*) _args;
-    args->idle = 0;
-
-    UDTSOCKET client = args->client;
-
-    char* buf = args->buf;
-    int size = args->size;
-    // int flags = args->flags;
-  
-    int ssize = 0;
-    int ss;
-
-    while (ssize < size) {
-	if (UDT::ERROR == (ss = UDT::send(client, buf + ssize, size - ssize, 0))) {
-	    cerr << "send:" << UDT::getlasterror().getErrorMessage() << endl;
-	    break;
-	}
-
-	ssize += ss;
-    }
-
-    if (ssize < size)
-	uc_err("Did not send complete buffer");
-
-    if (UDT::ERROR == ss) {
-	cerr << "send:" << UDT::getlasterror().getErrorMessage() << endl;
-	exit(EXIT_FAILURE);
-    }
-
-    args->idle = 1;
-    args->size = ss;
-    pthread_exit(NULL);
-
 }

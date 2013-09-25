@@ -42,7 +42,8 @@ void initialize_thread_args(thread_args *args){
     args->udt_buff = BUFF_SIZE;
     args->udp_buff = BUFF_SIZE;
     args->mss = 8400;
-
+    args->use_crypto = 1;
+    args->verbose = 0;
 }
 
 int main(int argc, char *argv[]){
@@ -51,11 +52,20 @@ int main(int argc, char *argv[]){
     enum {NONE, SERVER, CLIENT};
     int operation = CLIENT;
 
+    thread_args args;
+    initialize_thread_args(&args);
+    
     // ----------- [ Read in options
-    while ((opt = getopt (argc, argv, "l")) != -1){
+    while ((opt = getopt (argc, argv, "nlv")) != -1){
 	switch (opt){
 	case 'l':
 	    operation = SERVER;
+	    break;
+	case 'v':
+	    args.verbose = 1;
+	    break;
+	case 'n':
+	    args.use_crypto = 0;
 	    break;
 	default:
 	    fprintf(stderr, "Unknown command line arg. -h for help.\n");
@@ -63,20 +73,11 @@ int main(int argc, char *argv[]){
 	    exit(1);
 	}
     }
-  
-    thread_args args;
-    initialize_thread_args(&args);
 
     // ----------- [ Setup ip
     if (operation == CLIENT){
 	if (optind < argc){
-	    if (strcmp(argv[optind], "localhost")){
-		args.ip = strdup(argv[optind++]);
-	    } else {
-		args.ip = strdup("127.0.0.1");
-		optind++;
-	    }
-
+	    args.ip = strdup(argv[optind++]);
 	} else {
 	    cerr << "error: Please specify server ip." << endl;
 	    exit(1);

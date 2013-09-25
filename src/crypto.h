@@ -19,7 +19,6 @@ and limitations under the License.
 #define CRYPTO_H
 
 #define N_CRYPTO_THREADS 16
-#define USE_CRYPTO 1
 
 #define PASSPHRASE_SIZE 32
 #define HEX_PASSPHRASE_SIZE 64
@@ -48,8 +47,6 @@ and limitations under the License.
 int THREAD_setup(void);
 int THREAD_cleanup(void);
 void *enrypt_threaded(void* _args);
-
-
 
 using namespace std;
 
