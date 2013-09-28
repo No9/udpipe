@@ -147,15 +147,11 @@ int run_server(thread_args *args){
     send_args.verbose = args->verbose;
     send_args.c = args->enc;
 
-    // pthread_create(&sndthread, NULL, senddata, new UDTSOCKET(recver));
     pthread_create(&sndthread, NULL, senddata, &send_args);
-
     pthread_join(sndthread, NULL);
 
-    UDT::close(serv);
-
     UDT::cleanup();
-    freeaddrinfo(res);
+
     return 0;
 }
 

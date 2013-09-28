@@ -63,8 +63,8 @@ int main(int argc, char *argv[]){
     initialize_thread_args(&args);
     int use_crypto = 0;
     int verbose = 0;
-    char* path_to_password = NULL;
-    char* password = NULL;
+    char* path_to_key = NULL;
+    char* key = NULL;
 
     // ----------- [ Read in options
     while ((opt = getopt (argc, argv, "hvnlp:f:")) != -1){
@@ -84,11 +84,11 @@ int main(int argc, char *argv[]){
 	    break;
 
 	case 'p':
-	    password = strdup(optarg);
+	    key = strdup(optarg);
 	    break;
 
 	case 'f':
-	    path_to_password = strdup(optarg);
+	    path_to_key = strdup(optarg);
 	    break;
 
 	case 'h':
@@ -103,34 +103,34 @@ int main(int argc, char *argv[]){
 	}
     }
 
-    if (use_crypto && (path_to_password && password)){
-	fprintf(stderr, "error: Please specify either password or password file, not both.\n");
+    if (use_crypto && (path_to_key && key)){
+	fprintf(stderr, "error: Please specify either key or key file, not both.\n");
 	exit(1);
     }
 
-    if (path_to_password){
-	FILE*password_file = fopen(path_to_password, "r");
-	if (!password_file){
-	    fprintf(stderr, "password file: %s.\n", strerror(errno));
+    if (path_to_key){
+	FILE*key_file = fopen(path_to_key, "r");
+	if (!key_file){
+	    fprintf(stderr, "key file: %s.\n", strerror(errno));
 	    exit(1);
 	}
 
-	fseek(password_file, 0, SEEK_END); 
-	long size = ftell(password_file);
-	fseek(password_file, 0, SEEK_SET); 
-	password = (char*)malloc(size);
-	fread(password, 1, size, password_file);
+	fseek(key_file, 0, SEEK_END); 
+	long size = ftell(key_file);
+	fseek(key_file, 0, SEEK_SET); 
+	key = (char*)malloc(size);
+	fread(key, 1, size, key_file);
 	
     }
 
-    if (!use_crypto && password){
-	fprintf(stderr, "warning: You've specified a password, but you don't have encryption turned on.\nProceeding without encryption.\n");
+    if (!use_crypto && key){
+	fprintf(stderr, "warning: You've specified a key, but you don't have encryption turned on.\nProceeding without encryption.\n");
     }    
 
-    if (use_crypto && !password){
+    if (use_crypto && !key){
 	fprintf(stderr, "Please either: \n (1) %s\n (2) %s\n (3) %s\n",
-		"include password in cli [-p password]",
-		"read on in from file [-f /path/to/password/file]",
+		"include key in cli [-p key]",
+		"read on in from file [-f /path/to/key/file]",
 		"choose not to use encryption, remove [-n]");
 	exit(1);
     }
@@ -157,9 +157,8 @@ int main(int argc, char *argv[]){
     if (use_crypto){
 
 	char* cipher = (char*) "aes-128";
-	crypto enc(EVP_ENCRYPT, PASSPHRASE_SIZE, (unsigned char*)password, cipher);
-	crypto dec(EVP_DECRYPT, PASSPHRASE_SIZE, (unsigned char*)password, cipher);
-	memset(password, 0, strlen(password));
+	crypto enc(EVP_ENCRYPT, PASSPHRASE_SIZE, (unsigned char*)key, cipher);
+	crypto dec(EVP_DECRYPT, PASSPHRASE_SIZE, (unsigned char*)key, cipher);
 	args.enc = &enc;
 	args.dec = &dec;
 
@@ -170,7 +169,8 @@ int main(int argc, char *argv[]){
 
     }
 
-
+    if (key)
+	memset(key, 0, strlen(key));
 
     // ----------- [ Spawn correct process
     if (operation == SERVER){

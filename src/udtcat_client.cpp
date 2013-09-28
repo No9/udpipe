@@ -63,7 +63,7 @@ int run_client(thread_args *args)
     hints.ai_flags = AI_PASSIVE;
     hints.ai_family = AF_INET;
     hints.ai_socktype = SOCK_STREAM;
-    
+
     if (0 != getaddrinfo(NULL, port, &hints, &local)){
 	cerr << "incorrect network address.\n" << endl;
 	return 1;
@@ -85,7 +85,7 @@ int run_client(thread_args *args)
     UDT::setsockopt(client, 0, UDT_SNDBUF, &udt_buff, sizeof(int));
     UDT::setsockopt(client, 0, UDP_SNDBUF, &udp_buff, sizeof(int));
 
-    freeaddrinfo(local);
+    // freeaddrinfo(local);
 
     if (0 != getaddrinfo(ip, port, &hints, &peer)) {
 	cerr << "incorrect server/peer address. " << ip << ":" << port << endl;
@@ -127,7 +127,7 @@ int run_client(thread_args *args)
     send_args.verbose = args->verbose;
     send_args.c = args->enc;
 
-    freeaddrinfo(peer);
+    // freeaddrinfo(peer);
 
     if (blast) {
 	CUDPBlast* cchandle = NULL;
@@ -142,9 +142,8 @@ int run_client(thread_args *args)
     void * retval;
     pthread_join(sndthread, &retval);
 
-    UDT::close(client);
-  
     UDT::cleanup();
+
     return 0;
 }
 

@@ -38,6 +38,7 @@ const int ECONNLOST = 2001;
 using std::cerr;
 using std::endl;
 
+int READ_IN = 0;
 
 void print_bytes(const void *object, size_t size) 
 {
@@ -100,10 +101,13 @@ void* recvdata(void * _args)
     } else {
 	if (remote_ssl_version != 0) {
 	    cerr << "recv: Encryption mismatch: local[OpenSSL] to remote[None]" << endl;
+	    write(fileno(stderr), &remote_ssl_version, sizeof(long));
 	    UDT::close(recver);
 	    exit(1);
 	}
     }	    
+
+    READ_IN = 1;
 
     int new_block = 1;
     int block_size = 0;
@@ -123,9 +127,11 @@ void* recvdata(void * _args)
 		rs = UDT::recv(recver, (char*)&block_size, offset, 0);
 
 		if (UDT::ERROR == rs) {
-		    if (UDT::getlasterror().getErrorCode() != ECONNLOST)
+		    if (UDT::getlasterror().getErrorCode() != ECONNLOST){
 			cerr << "recv:" << UDT::getlasterror().getErrorMessage() << endl;
-		    exit(1);
+			exit(1);			
+		    }
+		    exit(0);
 		}
 
 		new_block = 0;
@@ -139,8 +145,11 @@ void* recvdata(void * _args)
 
 
 	    if (UDT::ERROR == rs) {
-		UDT::close(recver);
-		return NULL;
+		if (UDT::getlasterror().getErrorCode() != ECONNLOST){
+		    cerr << "recv:" << UDT::getlasterror().getErrorMessage() << endl;
+		    exit(1);			
+		}
+		exit(0);
 	    }
 
 
@@ -172,9 +181,6 @@ void* recvdata(void * _args)
 		buffer_cursor = 0;
 		crypto_cursor = 0;
 		new_block = 1;
-
-
-	    
 	    
 	    } 
 	}
@@ -187,8 +193,11 @@ void* recvdata(void * _args)
 	    rs = UDT::recv(recver, indata, BUFF_SIZE, 0);
 
 	    if (UDT::ERROR == rs) {
-		UDT::close(recver);
-		return NULL;
+		if (UDT::getlasterror().getErrorCode() != ECONNLOST){
+		    cerr << "recv:" << UDT::getlasterror().getErrorMessage() << endl;
+		    exit(1);			
+		}
+		exit(0);
 	    }
 
 	    written_bytes = write(fileno(stdout), indata, rs);	
@@ -232,9 +241,16 @@ void* senddata(void* _args)
     else
 	local_openssl_version = 0;
 
-    UDT::send(client, (char*)&local_openssl_version, sizeof(long), 0);
+    if (UDT::send(client, (char*)&local_openssl_version, sizeof(long), 0) < 0){
+	    cerr << "send:" << UDT::getlasterror().getErrorMessage() << endl;
+	    UDT::close(client);
+	    exit(1);
+    }
 
+    while (!READ_IN){
 
+    }
+	
     if (args->verbose)
 	fprintf(stderr, "[send thread] Send thread listening on stdin.\n");
 
@@ -246,16 +262,17 @@ void* senddata(void* _args)
 	    bytes_read = read(fileno(stdin), outdata+offset, BUFF_SIZE);
 	
 	    if(bytes_read < 0){
+		cerr << "send:" << UDT::getlasterror().getErrorMessage() << endl;
 		UDT::close(client);
-		return NULL;
+		exit(1);
 	    }
 
 	    if(bytes_read == 0) {
+		sleep(1);
 		UDT::close(client);
-		return NULL;
+		exit(0);
 	    }
 	
-
 	    if(args->use_crypto){
 
 		*((int*)outdata) = bytes_read;
@@ -282,7 +299,8 @@ void* senddata(void* _args)
 	    
 		if (UDT::ERROR == (ss = UDT::send(client, outdata + ssize, 
 						  bytes_read - ssize, 0))) {
-		    fprintf(stderr, "send: Failed to send buffer.\n");
+
+		    cerr << "send:" << UDT::getlasterror().getErrorMessage() << endl;
 		    return NULL;
 		}
 
@@ -299,11 +317,19 @@ void* senddata(void* _args)
 	    bytes_read = read(fileno(stdin), outdata, BUFF_SIZE);
 	    int ssize = 0;
 	    int ss;
+
+	    if(bytes_read == 0) {
+		UDT::close(client);
+		sleep(1);
+		exit(0);
+	    }
+
+
 	    while(ssize < bytes_read) {
 
 		if (UDT::ERROR == (ss = UDT::send(client, outdata + ssize, 
 						  bytes_read - ssize, 0))) {
-		    fprintf(stderr, "send: Failed to send buffer.\n");
+		    cerr << "send:" << UDT::getlasterror().getErrorMessage() << endl;
 		    return NULL;
 		}
 

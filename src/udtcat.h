@@ -29,6 +29,7 @@ and limitations under the License.
 #include "udtcat_threads.h"
 #include "crypto.h"
 
+/* #define BUFF_SIZE 327680 */
 #define BUFF_SIZE 67108864
 
 typedef struct rs_args{
