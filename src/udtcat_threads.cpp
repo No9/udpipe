@@ -69,7 +69,8 @@ void send_full(UDTSOCKET sock, char* buffer, int len){
     
 }
 
-void recv_full(UDTSOCKET sock, char* buffer, int len){
+void recv_full(UDTSOCKET sock, char* buffer, int len)
+{
     
     int recvd = 0;
     int rs = 0;
@@ -88,8 +89,11 @@ void recv_full(UDTSOCKET sock, char* buffer, int len){
 }
 
 const int KEY_LEN = 1026;
+int signed_auth;
 
-void auth_peer(rs_args* args){
+
+void auth_peer(rs_args* args)
+{
 
 
     char key[KEY_LEN];
@@ -97,8 +101,12 @@ void auth_peer(rs_args* args){
 
     memset(key, 1, KEY_LEN);
 
+    signed_auth = 0;
+
     send_full(*args->usocket, key, KEY_LEN);
-    sleep(.5);
+
+    while (!signed_auth);
+
     recv_full(*args->usocket, signed_key, KEY_LEN);
 
     fprintf(stderr, "key:        "); print_bytes(key, 16);
@@ -118,7 +126,8 @@ void auth_peer(rs_args* args){
 }
 
 
-void sign_auth(rs_args* args){
+void sign_auth(rs_args* args)
+{
     
     char key[KEY_LEN];
 
@@ -135,6 +144,8 @@ void sign_auth(rs_args* args){
     fprintf(stderr, "signed: "); print_bytes(key, 16);
 
     send_full(*args->usocket, key, KEY_LEN);
+
+    signed_auth = 1;
 
 }
 

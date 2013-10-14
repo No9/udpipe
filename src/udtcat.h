@@ -38,6 +38,7 @@ typedef struct rs_args{
     int use_crypto;
     int verbose;
     int n_crypto_threads; 
+    
 } rs_args;
 
 typedef struct thread_args{
