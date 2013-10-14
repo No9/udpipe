@@ -32,12 +32,8 @@ using std::endl;
 void usage(){
     fprintf(stderr, "usage: udtcat [udtcat options] host port\n");
     fprintf(stderr, "options:\n");
-    fprintf(stderr, "\t\t%s %s\t%s\n", "-l", "\t", "server");
-    fprintf(stderr, "\t\t%s %s\t%s\n", "-n", "\t", "use encryption");
-    fprintf(stderr, "\t\t%s %s\t%s\n", "-p", "password", "password string");
-    fprintf(stderr, "\t\t%s %s\t%s\n", "-f", "path\t", "path to password");
-    fprintf(stderr, "\t\t%s %s\t%s\n", "-v", "\t", "verbose");
     // fprintf(stderr, "\t\t%s %s\t%s\n", "", "", "");
+
     exit(1);
 }
 
@@ -51,6 +47,7 @@ void initialize_thread_args(thread_args *args){
     args->mss = 8400;
     args->use_crypto = 0;
     args->verbose = 0;
+    args->n_crypto_threads = 1;
 }
 
 int main(int argc, char *argv[]){
@@ -65,9 +62,10 @@ int main(int argc, char *argv[]){
     int verbose = 0;
     char* path_to_key = NULL;
     char* key = NULL;
+    int n_crypto_threads = 1;
 
     // ----------- [ Read in options
-    while ((opt = getopt (argc, argv, "hvnlp:f:")) != -1){
+    while ((opt = getopt (argc, argv, "hvn:lp:f:")) != -1){
 	switch (opt){
 
 	case 'l':
@@ -80,14 +78,19 @@ int main(int argc, char *argv[]){
 
 	case 'n':
 	    args.use_crypto = 1;
-	    use_crypto = 1;
+	    use_crypto  = 1; 
+	    n_crypto_threads = atoi(optarg);
 	    break;
 
 	case 'p':
+	    args.use_crypto = 1;
+	    use_crypto = 1;
 	    key = strdup(optarg);
 	    break;
 
 	case 'f':
+	    args.use_crypto = 1;
+	    use_crypto = 1;
 	    path_to_key = strdup(optarg);
 	    break;
 
@@ -123,9 +126,9 @@ int main(int argc, char *argv[]){
 	
     }
 
-    if (!use_crypto && key){
-	fprintf(stderr, "warning: You've specified a key, but you don't have encryption turned on.\nProceeding without encryption.\n");
-    }    
+    // if (!use_crypto && key){
+    // 	fprintf(stderr, "warning: You've specified a key, but you don't have encryption turned on.\nProceeding without encryption.\n");
+    // }    
 
     if (use_crypto && !key){
 	fprintf(stderr, "Please either: \n (1) %s\n (2) %s\n (3) %s\n",
@@ -157,10 +160,12 @@ int main(int argc, char *argv[]){
     if (use_crypto){
 
 	char* cipher = (char*) "aes-128";
-	crypto enc(EVP_ENCRYPT, PASSPHRASE_SIZE, (unsigned char*)key, cipher);
-	crypto dec(EVP_DECRYPT, PASSPHRASE_SIZE, (unsigned char*)key, cipher);
+	crypto enc(EVP_ENCRYPT, PASSPHRASE_SIZE, (unsigned char*)key, cipher, n_crypto_threads);
+	crypto dec(EVP_DECRYPT, PASSPHRASE_SIZE, (unsigned char*)key, cipher, n_crypto_threads);
 	args.enc = &enc;
 	args.dec = &dec;
+
+	args.n_crypto_threads = n_crypto_threads;
 
     } else {
 

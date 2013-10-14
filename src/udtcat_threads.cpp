@@ -51,11 +51,98 @@ void print_bytes(const void *object, size_t size)
     fprintf(stderr, "]\n");
 }
 
+void send_full(UDTSOCKET sock, char* buffer, int len){
+    
+    int sent = 0;
+    int rs = 0;
+    while (sent < len){
+	rs = UDT::send(sock, buffer+sent, len-sent, 0);
+	if (UDT::ERROR == rs) {
+	    if (UDT::getlasterror().getErrorCode() != ECONNLOST)
+		cerr << "recv:" << UDT::getlasterror().getErrorMessage() << 
+		    "send_full: Unable to send data." << endl;
+	    exit(1);    
+	}
+	sent += rs;
+    }
+    
+    
+}
+
+void recv_full(UDTSOCKET sock, char* buffer, int len){
+    
+    int recvd = 0;
+    int rs = 0;
+    while (recvd < len){
+	rs = UDT::recv(sock, buffer+recvd, len-recvd, 0);
+	if (UDT::ERROR == rs) {
+	    if (UDT::getlasterror().getErrorCode() != ECONNLOST)
+		cerr << "recv:" << UDT::getlasterror().getErrorMessage() << 
+		    "send_full: Unable to send data." << endl;
+	    exit(1);    
+	}
+	recvd += rs;
+    }
+    
+    
+}
+
+const int KEY_LEN = 1026;
+
+void auth_peer(rs_args* args){
+
+
+    char key[KEY_LEN];
+    char signed_key[KEY_LEN];
+
+    memset(key, 1, KEY_LEN);
+
+    send_full(*args->usocket, key, KEY_LEN);
+    sleep(.5);
+    recv_full(*args->usocket, signed_key, KEY_LEN);
+
+    fprintf(stderr, "key:        "); print_bytes(key, 16);
+    fprintf(stderr, "signed_key: "); print_bytes(signed_key, 16);
+
+    int crypt_len = KEY_LEN/4;
+    for (int i = 0; i < crypt_len; i += crypt_len)
+	pass_to_enc_thread(signed_key+i, signed_key+i, crypt_len, args->c);
+    join_all_encryption_threads(args->c);
+
+    if (memcmp(key, signed_key, KEY_LEN)){
+	fprintf(stderr, "Authorization failed\n");
+	exit(1);
+
+    }
+
+}
+
+
+void sign_auth(rs_args* args){
+    
+    char key[KEY_LEN];
+
+    recv_full(*args->usocket, key, KEY_LEN);
+
+    fprintf(stderr, "signing: "); print_bytes(key, 16);
+
+    int crypt_len = KEY_LEN/4;
+    for (int i = 0; i < crypt_len; i += crypt_len)
+	pass_to_enc_thread(key+i, key+i, crypt_len, args->c);
+
+    join_all_encryption_threads(args->c);
+
+    fprintf(stderr, "signed: "); print_bytes(key, 16);
+
+    send_full(*args->usocket, key, KEY_LEN);
+
+}
+
 
 void* recvdata(void * _args)
 {
 
-    rs_args * args = (recv_args*)_args;
+    rs_args * args = (rs_args*)_args;
     
     if (args->verbose)
 	fprintf(stderr, "[recv thread] Initializing receive thread...\n");
@@ -65,7 +152,7 @@ void* recvdata(void * _args)
 
     UDTSOCKET recver = *args->usocket;
 
-    int crypto_buff_len = BUFF_SIZE / N_CRYPTO_THREADS;
+    int crypto_buff_len = BUFF_SIZE / args->n_crypto_threads;
     int buffer_cursor;
 
     char* indata = (char*) malloc(BUFF_SIZE*sizeof(char));
@@ -74,38 +161,40 @@ void* recvdata(void * _args)
 	exit(EXIT_FAILURE);
     }
 
-    if (args->verbose)
-	fprintf(stderr, "[recv thread] Checking encryption...\n");
+    auth_peer(args);
 
-    long remote_ssl_version = 0;
-    int rs = UDT::recv(recver, (char*)&remote_ssl_version, sizeof(long), 0);
+    // if (args->verbose)
+    // 	fprintf(stderr, "[recv thread] Checking encryption...\n");
 
-    if (UDT::ERROR == rs) {
-	if (UDT::getlasterror().getErrorCode() != ECONNLOST)
-	    cerr << "recv:" << UDT::getlasterror().getErrorMessage() << 
-		"Unable to determine remote crypto method" << endl;
-	exit(1);    
-    }
+    // long remote_ssl_version = 0;
+    // int rs = UDT::recv(recver, (char*)&remote_ssl_version, sizeof(long), 0);
 
-    if (args->use_crypto){
-	if (remote_ssl_version == 0){
-	    cerr << "recv: Encryption mismatch: local[None] to remote[OpenSSL]" << endl;
-	    UDT::close(recver);
-	    exit(1);
-	}
+    // if (UDT::ERROR == rs) {
+    // 	if (UDT::getlasterror().getErrorCode() != ECONNLOST)
+    // 	    cerr << "recv:" << UDT::getlasterror().getErrorMessage() << 
+    // 		"Unable to determine remote crypto method" << endl;
+    // 	exit(1);    
+    // }
 
-	if (remote_ssl_version != OPENSSL_VERSION_NUMBER){
-	    // versions don't match
-	}
+    // if (args->use_crypto){
+    // 	if (remote_ssl_version == 0){
+    // 	    cerr << "recv: Encryption mismatch: local[None] to remote[OpenSSL]" << endl;
+    // 	    UDT::close(recver);
+    // 	    exit(1);
+    // 	}
 
-    } else {
-	if (remote_ssl_version != 0) {
-	    cerr << "recv: Encryption mismatch: local[OpenSSL] to remote[None]" << endl;
-	    write(fileno(stderr), &remote_ssl_version, sizeof(long));
-	    UDT::close(recver);
-	    exit(1);
-	}
-    }	    
+    // 	if (remote_ssl_version != OPENSSL_VERSION_NUMBER){
+    // 	    // versions don't match
+    // 	}
+
+    // } else {
+    // 	if (remote_ssl_version != 0) {
+    // 	    cerr << "recv: Encryption mismatch: local[OpenSSL] to remote[None]" << endl;
+    // 	    write(fileno(stderr), &remote_ssl_version, sizeof(long));
+    // 	    UDT::close(recver);
+    // 	    exit(1);
+    // 	}
+    // }	    
 
     READ_IN = 1;
 
@@ -215,7 +304,6 @@ void* recvdata(void * _args)
 
 void* senddata(void* _args)
 {
-        
     rs_args * args = (rs_args*) _args;
     
     if (args->verbose)
@@ -227,7 +315,7 @@ void* senddata(void* _args)
 	fprintf(stderr, "[send thread] Send encryption is on.\n");
 
     char* outdata = (char*)malloc(BUFF_SIZE*sizeof(char));
-    int crypto_buff_len = BUFF_SIZE / N_CRYPTO_THREADS;
+    int crypto_buff_len = BUFF_SIZE / args->n_crypto_threads;
     
     int	offset = sizeof(int)/sizeof(char);
     int bytes_read;
@@ -235,17 +323,20 @@ void* senddata(void* _args)
     if (args->verbose)
 	fprintf(stderr, "[send thread] Sending encryption status...\n");
 
-    long local_openssl_version;
-    if (args->use_crypto)
-	local_openssl_version = OPENSSL_VERSION_NUMBER;
-    else
-	local_openssl_version = 0;
+    sign_auth(args);
 
-    if (UDT::send(client, (char*)&local_openssl_version, sizeof(long), 0) < 0){
-	    cerr << "send:" << UDT::getlasterror().getErrorMessage() << endl;
-	    UDT::close(client);
-	    exit(1);
-    }
+    // long local_openssl_version;
+    // if (args->use_crypto)
+    // 	local_openssl_version = OPENSSL_VERSION_NUMBER;
+    // else
+    // 	local_openssl_version = 0;
+
+
+    // if (UDT::send(client, (char*)&local_openssl_version, sizeof(long), 0) < 0){
+    // 	    // cerr << "send:" << UDT::getlasterror().getErrorMessage() << endl;
+    // 	    // UDT::close(client);
+    // 	    // exit(1);
+    // }
 
     while (!READ_IN){
 

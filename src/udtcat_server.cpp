@@ -133,6 +133,7 @@ int run_server(thread_args *args){
     rcvargs.usocket = new UDTSOCKET(recver);
     rcvargs.use_crypto = args->use_crypto;
     rcvargs.verbose = args->verbose;
+    rcvargs.n_crypto_threads = args->n_crypto_threads;
     rcvargs.c = args->dec;
 
     pthread_create(&rcvthread, NULL, recvdata, &rcvargs);
@@ -145,6 +146,7 @@ int run_server(thread_args *args){
     send_args.usocket = new UDTSOCKET(recver);
     send_args.use_crypto = args->use_crypto;
     send_args.verbose = args->verbose;
+    send_args.n_crypto_threads = args->n_crypto_threads;
     send_args.c = args->enc;
 
     pthread_create(&sndthread, NULL, senddata, &send_args);
