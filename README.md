@@ -40,7 +40,7 @@ Client side:
 
      -l							start a server
      -n n_crypto_threads 		set number of encryption threads per send/recv thread to n_crypto_threads
-     -p key				specify key in-line
+     -p key				    specify key in-line
      -f path			        path to key file
      -v							verbose
 
