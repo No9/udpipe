@@ -38,10 +38,10 @@ Client side:
 
 #### UDTCAT Options:
 
-     -l						start a server
+     -l							start a server
      -n n_crypto_threads 			set number of encryption threads per send/recv thread to n_crypto_threads
-     -f path					    		        path to key file
-     -v											verbose
+     -f path					        path to key file
+     -v							verbose
 
 ### Basic exmple (unencrypted)
 
@@ -57,11 +57,11 @@ Server side:
 
 Client side:
 
-       uc -n=4 -p PASSword localhost 9000 < source/file
+       uc -n 4 -p PASSword localhost 9000 < source/file
 
 Server side:
 
-       uc -n=4 -f file/contains/PASSword -l 9000 > output/file
+       uc -n 4 -f file/contains/PASSword -l 9000 > output/file
 
 This examples creates a connection to trasfer "source/file" to "output/file" over an encrypted stream on port 9000 which uses 4 threads to encrypt/decrypt each block.  The password used as a key for OpenSSL is "PASSword"
 
