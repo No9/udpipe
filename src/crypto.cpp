@@ -61,7 +61,7 @@ static void locking_function(int mode, int n, const char*file, int line)
 // Returns the thread ID
 static void threadid_func(CRYPTO_THREADID * id)
 {
-    fprintf(stderr, "[debug] %s\n", "Passing thread ID");
+    // fprintf(stderr, "[debug] %s\n", "Passing thread ID");
     CRYPTO_THREADID_set_numeric(id, THREAD_ID);
 }
 

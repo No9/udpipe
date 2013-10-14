@@ -25,7 +25,7 @@ and limitations under the License.
 #include "udtcat.h"
 #include "udtcat_threads.h"
 
-#define DEBUG 1
+#define DEBUG 0
 #define EXIT_FAILURE 1
 
 #define prii(x) fprintf(stderr,"debug:%d\n",x)
@@ -99,7 +99,7 @@ void auth_peer(rs_args* args)
     char key[KEY_LEN];
     char signed_key[KEY_LEN];
 
-    memset(key, 1, KEY_LEN);
+    RAND_bytes((unsigned char*)key, KEY_LEN);
 
     signed_auth = 0;
 
@@ -109,8 +109,8 @@ void auth_peer(rs_args* args)
 
     recv_full(*args->usocket, signed_key, KEY_LEN);
 
-    fprintf(stderr, "key:        "); print_bytes(key, 16);
-    fprintf(stderr, "signed_key: "); print_bytes(signed_key, 16);
+    // fprintf(stderr, "key:        "); print_bytes(key, 16);
+    // fprintf(stderr, "signed_key: "); print_bytes(signed_key, 16);
 
     int crypt_len = KEY_LEN/4;
     for (int i = 0; i < crypt_len; i += crypt_len)
@@ -133,7 +133,7 @@ void sign_auth(rs_args* args)
 
     recv_full(*args->usocket, key, KEY_LEN);
 
-    fprintf(stderr, "signing: "); print_bytes(key, 16);
+    // fprintf(stderr, "signing: "); print_bytes(key, 16);
 
     int crypt_len = KEY_LEN/4;
     for (int i = 0; i < crypt_len; i += crypt_len)
@@ -141,7 +141,7 @@ void sign_auth(rs_args* args)
 
     join_all_encryption_threads(args->c);
 
-    fprintf(stderr, "signed: "); print_bytes(key, 16);
+    // fprintf(stderr, "signed: "); print_bytes(key, 16);
 
     send_full(*args->usocket, key, KEY_LEN);
 
