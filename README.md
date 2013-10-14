@@ -39,8 +39,8 @@ Client side:
 #### UDTCAT Options:
 
      -l							start a server
-     -n n_crypto_threads 			set number of encryption threads per send/recv thread to n_crypto_threads
-     -f path					        path to key file
+     -n n_crypto_threads 		set number of encryption threads per send/recv thread to n_crypto_threads
+     -f path			        path to key file
      -v							verbose
 
 ### Basic exmple (unencrypted)
