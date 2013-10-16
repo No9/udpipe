@@ -139,11 +139,18 @@ int run_client(thread_args *args)
 	    cchandle->setRate(blast_rate);
     }
 
+    if (args->print_speed){
+	pthread_t mon_thread;
+	pthread_create(&mon_thread, NULL, monitor, &client);
+	
+    }
+
     pthread_create(&sndthread, NULL, senddata, &send_args);
+
 
     void * retval;
     pthread_join(sndthread, &retval);
-
+    
     UDT::cleanup();
 
     return 0;

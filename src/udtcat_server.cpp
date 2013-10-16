@@ -149,6 +149,13 @@ int run_server(thread_args *args){
     send_args.n_crypto_threads = args->n_crypto_threads;
     send_args.c = args->enc;
 
+    if (args->print_speed){
+	pthread_t mon_thread;
+	pthread_create(&mon_thread, NULL, monitor, &recver);
+	
+    }
+
+
     pthread_create(&sndthread, NULL, senddata, &send_args);
     pthread_join(sndthread, NULL);
 

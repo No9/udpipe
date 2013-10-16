@@ -48,6 +48,7 @@ void initialize_thread_args(thread_args *args){
     args->use_crypto = 0;
     args->verbose = 0;
     args->n_crypto_threads = 1;
+    args->print_speed = 0;
 }
 
 int main(int argc, char *argv[]){
@@ -65,8 +66,12 @@ int main(int argc, char *argv[]){
     int n_crypto_threads = 1;
 
     // ----------- [ Read in options
-    while ((opt = getopt (argc, argv, "hvn:lp:f:")) != -1){
+    while ((opt = getopt (argc, argv, "hvsn:lp:f:")) != -1){
 	switch (opt){
+	    
+	case 's':
+	    args.print_speed = 1;
+	    break; 
 
 	case 'l':
 	    operation = SERVER;

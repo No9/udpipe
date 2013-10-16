@@ -172,7 +172,8 @@ void* recvdata(void * _args)
 	exit(EXIT_FAILURE);
     }
 
-    auth_peer(args);
+    if (args->use_crypto)
+	auth_peer(args);
 
     // if (args->verbose)
     // 	fprintf(stderr, "[recv thread] Checking encryption...\n");
@@ -334,7 +335,8 @@ void* senddata(void* _args)
     if (args->verbose)
 	fprintf(stderr, "[send thread] Sending encryption status...\n");
 
-    sign_auth(args);
+    if (args->use_crypto)
+	sign_auth(args);
 
     // long local_openssl_version;
     // if (args->use_crypto)
@@ -349,9 +351,7 @@ void* senddata(void* _args)
     // 	    // exit(1);
     // }
 
-    while (!READ_IN){
-
-    }
+    while (!READ_IN);
 	
     if (args->verbose)
 	fprintf(stderr, "[send thread] Send thread listening on stdin.\n");
@@ -445,4 +445,33 @@ void* senddata(void* _args)
     UDT::close(client);
 
     return NULL;
+}
+
+
+void* monitor(void* s)
+{
+    UDTSOCKET u = *(UDTSOCKET*)s;
+
+    UDT::TRACEINFO perf;
+
+    cerr << "SendRate(Mb/s)\tRTT(ms)\tCWnd\tPktSndPeriod(us)\tRecvACK\tRecvNAK" << endl;
+
+    while (true) {
+	sleep(1);
+
+	if (UDT::ERROR == UDT::perfmon(u, &perf)) {
+	    cout << "perfmon: " << UDT::getlasterror().getErrorMessage() << endl;
+	    break;
+	}
+
+	cerr << perf.mbpsSendRate << "\t\t"
+	     << perf.msRTT << "\t"
+	     << perf.pktCongestionWindow << "\t"
+	     << perf.usPktSndPeriod << "\t\t\t"
+	     << perf.pktRecvACK << "\t"
+	     << perf.pktRecvNAK << endl;
+    }
+
+    return NULL;
+ 
 }

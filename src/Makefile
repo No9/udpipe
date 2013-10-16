@@ -41,14 +41,13 @@ DIR = $(shell pwd)
 APP = udtcat  
 APPOUT = uc
 
-all: $(APP) sendfile
+all: $(APP) udtcat
 
 %.o: %.cpp 
 	$(C++) $(CCFLAGS) $< -c
 
 udtcat: udtcat.o udtcat_threads.o udtcat_server.o udtcat_client.o crypto.o
 	$(C++) $^ -o $(APPOUT) $(LDFLAGS)
-	cp $(APPOUT) $(APP)
 
 clean:
 	rm -f *.o $(APPOUT) 
