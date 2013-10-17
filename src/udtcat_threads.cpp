@@ -454,7 +454,7 @@ void* monitor(void* s)
 
     UDT::TRACEINFO perf;
 
-    cerr << "SendRate(Mb/s)\tRTT(ms)\tCWnd\tPktSndPeriod(us)\tRecvACK\tRecvNAK" << endl;
+    cerr << "Snd(Mb/s)\tRcv(Mb/s)\tRTT(ms)\tCWnd\tPktSndPeriod(us)\tRecvACK\tRecvNAK" << endl;
 
     while (true) {
 	sleep(1);
@@ -465,6 +465,7 @@ void* monitor(void* s)
 	}
 
 	cerr << perf.mbpsSendRate << "\t\t"
+	     << perf.mbpsRecvRate << "\t\t"
 	     << perf.msRTT << "\t"
 	     << perf.pktCongestionWindow << "\t"
 	     << perf.usPktSndPeriod << "\t\t\t"
