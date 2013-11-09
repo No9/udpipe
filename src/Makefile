@@ -38,15 +38,15 @@ endif
 
 DIR = $(shell pwd)
 
-APP = udtcat  
-APPOUT = uc
+APP = udpipe  
+APPOUT = up 
 
-all: $(APP) udtcat
+all: $(APP) udpipe
 
 %.o: %.cpp 
 	$(C++) $(CCFLAGS) $< -c
 
-udtcat: udtcat.o udtcat_threads.o udtcat_server.o udtcat_client.o crypto.o
+udpipe: udpipe.o udpipe_threads.o udpipe_server.o udpipe_client.o crypto.o
 	$(C++) $^ -o $(APPOUT) $(LDFLAGS)
 
 clean:
