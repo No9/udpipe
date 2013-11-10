@@ -38,7 +38,7 @@ typedef struct rs_args{
     int use_crypto;
     int verbose;
     int n_crypto_threads; 
-
+    int timeout;
 } rs_args;
 
 typedef struct thread_args{
@@ -55,6 +55,7 @@ typedef struct thread_args{
     int verbose;
     int n_crypto_threads;
     int print_speed; 
+    int timeout;
 } thread_args;
 
 void* send_buf_threaded(void*_args);

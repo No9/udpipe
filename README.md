@@ -43,7 +43,7 @@ Client side:
      -p key				    	turn on encryption and specify key in-line
      -f path			        turn on encryption, path=path to key file
      -v							verbose
-
+     -t timeout					force udpipe to timeout if no data transfered
 
 ### Basic exmple (unencrypted)
 

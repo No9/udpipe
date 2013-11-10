@@ -51,6 +51,31 @@ void print_bytes(const void *object, size_t size)
     fprintf(stderr, "]\n");
 }
 
+int timeout_sem;
+void *monitor_timeout(void* arg) {
+
+    int timeout = *(int*) arg;
+
+    while (1){
+
+	sleep(timeout);
+	if (timeout_sem == 0){
+	    fprintf(stderr, "Exiting on timeout.\n");
+	    exit(0);
+
+	} else {
+	    // continue on as normal
+	}
+
+	// If timeout_sem == 2, the connection has not been made -> no timeout next round
+	if (timeout_sem != 2)
+	    timeout_sem = 0;
+
+    }
+}
+
+
+
 void send_full(UDTSOCKET sock, char* buffer, int len){
     
     int sent = 0;
@@ -112,10 +137,14 @@ void auth_peer(rs_args* args)
     // fprintf(stderr, "key:        "); print_bytes(key, 16);
     // fprintf(stderr, "signed_key: "); print_bytes(signed_key, 16);
 
-    int crypt_len = KEY_LEN/4;
-    for (int i = 0; i < crypt_len; i += crypt_len)
-	pass_to_enc_thread(signed_key+i, signed_key+i, crypt_len, args->c);
+
+    int crypt_len = KEY_LEN/args->n_crypto_threads;
+    for (int i = 0; i < args->n_crypto_threads; i ++)
+	pass_to_enc_thread(signed_key+i*crypt_len, signed_key+i*crypt_len, 
+			   crypt_len, args->c);
+
     join_all_encryption_threads(args->c);
+
 
     if (memcmp(key, signed_key, KEY_LEN)){
 	fprintf(stderr, "Authorization failed\n");
@@ -133,15 +162,12 @@ void sign_auth(rs_args* args)
 
     recv_full(*args->usocket, key, KEY_LEN);
 
-    // fprintf(stderr, "signing: "); print_bytes(key, 16);
-
-    int crypt_len = KEY_LEN/4;
-    for (int i = 0; i < crypt_len; i += crypt_len)
-	pass_to_enc_thread(key+i, key+i, crypt_len, args->c);
+    int crypt_len = KEY_LEN/args->n_crypto_threads;
+    for (int i = 0; i < args->n_crypto_threads; i ++)
+	pass_to_enc_thread(key+i*crypt_len, key+i*crypt_len, 
+			   crypt_len, args->c);
 
     join_all_encryption_threads(args->c);
-
-    // fprintf(stderr, "signed: "); print_bytes(key, 16);
 
     send_full(*args->usocket, key, KEY_LEN);
 
@@ -175,38 +201,14 @@ void* recvdata(void * _args)
     if (args->use_crypto)
 	auth_peer(args);
 
-    // if (args->verbose)
-    // 	fprintf(stderr, "[recv thread] Checking encryption...\n");
+    timeout_sem = 2;
+    // Create a monitor thread to watch for timeouts
+    if (args->timeout > 0){
+	pthread_t monitor_thread;
+	pthread_create(&monitor_thread, NULL, &monitor_timeout, &args->timeout);
 
-    // long remote_ssl_version = 0;
-    // int rs = UDT::recv(recver, (char*)&remote_ssl_version, sizeof(long), 0);
+    }
 
-    // if (UDT::ERROR == rs) {
-    // 	if (UDT::getlasterror().getErrorCode() != ECONNLOST)
-    // 	    cerr << "recv:" << UDT::getlasterror().getErrorMessage() << 
-    // 		"Unable to determine remote crypto method" << endl;
-    // 	exit(1);    
-    // }
-
-    // if (args->use_crypto){
-    // 	if (remote_ssl_version == 0){
-    // 	    cerr << "recv: Encryption mismatch: local[None] to remote[OpenSSL]" << endl;
-    // 	    UDT::close(recver);
-    // 	    exit(1);
-    // 	}
-
-    // 	if (remote_ssl_version != OPENSSL_VERSION_NUMBER){
-    // 	    // versions don't match
-    // 	}
-
-    // } else {
-    // 	if (remote_ssl_version != 0) {
-    // 	    cerr << "recv: Encryption mismatch: local[OpenSSL] to remote[None]" << endl;
-    // 	    write(fileno(stderr), &remote_ssl_version, sizeof(long));
-    // 	    UDT::close(recver);
-    // 	    exit(1);
-    // 	}
-    // }	    
 
     READ_IN = 1;
 
@@ -217,6 +219,10 @@ void* recvdata(void * _args)
 
     if (args->verbose)
 	fprintf(stderr, "[recv thread] Listening on receive thread.\n");
+
+    // Set monitor thread to expect a timeout
+    if (args->timeout)
+	timeout_sem = 1;
 
     if(args->use_crypto) {
 	while(true) {
@@ -253,6 +259,9 @@ void* recvdata(void * _args)
 		exit(0);
 	    }
 
+	    // Cancel timeout for another args->timeout seconds
+	    if (args->timeout)
+		timeout_sem = 1;
 
 	    buffer_cursor += rs;
 
