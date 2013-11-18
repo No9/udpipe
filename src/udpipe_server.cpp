@@ -22,8 +22,9 @@ and limitations under the License.
 #include <netdb.h>
 #include <iostream>
 #include <udt.h>
-
 #include "udpipe.h"
+
+#include <arpa/inet.h>
 
 using std::cerr;
 using std::endl;
@@ -45,35 +46,57 @@ int run_server(thread_args *args){
     int udp_buff = args->udp_buff; // 67108864;
     int mss = args->mss;
 
-
     if (args->verbose)
 	fprintf(stderr, "[server] Starting UDT...\n");
     UDT::startup();
 
     addrinfo hints;
     addrinfo* res;
+    struct sockaddr_in my_addr;
 
-    memset(&hints, 0, sizeof(struct addrinfo));
+    // switch to turn on ip specification or not
+    int specify_ip = !(args->listen_ip == NULL);
 
-    hints.ai_flags = AI_PASSIVE;
-    hints.ai_family = AF_INET;
-    hints.ai_socktype = SOCK_STREAM;
+    if (args->verbose)
+	fprintf(stderr, "Listening on specific ip: %s\n", args->listen_ip);
 
-    string service(port);
+    // char* ip;
 
-    if (0 != getaddrinfo(NULL, service.c_str(), &hints, &res)) {
-	cerr << "illegal port number or port is busy.\n" << endl;
-	return 1;
+    // if (specify_ip)
+    // 	ip = strdup(args->listen_ip);
+
+    if (specify_ip){
+	my_addr.sin_family = AF_INET;     
+	my_addr.sin_port = htons(atoi(port)); 
+	my_addr.sin_addr.s_addr = inet_addr(args->listen_ip);
+
+	bzero(&(my_addr.sin_zero), 8);    
+    } else {
+	memset(&hints, 0, sizeof(struct addrinfo));
+
+	hints.ai_flags = AI_PASSIVE;
+	hints.ai_family = AF_INET;
+	hints.ai_socktype = SOCK_STREAM;
+
+	string service(port);
+
+	if (0 != getaddrinfo(NULL, service.c_str(), &hints, &res)) {
+	    cerr << "illegal port number or port is busy.\n" << endl;
+	    return 1;
+	}
     }
 
     buffer_size = udt_buff;
-
 
     if (args->verbose)
 	fprintf(stderr, "[server] Creating socket...\n");
 
     UDTSOCKET serv;
-    serv = UDT::socket(res->ai_family, res->ai_socktype, res->ai_protocol);
+    if (specify_ip){
+	serv = UDT::socket(AF_INET, SOCK_STREAM, 0);
+    } else { 
+	serv = UDT::socket(res->ai_family, res->ai_socktype, res->ai_protocol);
+    }
 
     // UDT Options
     if (blast)
@@ -83,20 +106,31 @@ int run_server(thread_args *args){
     UDT::setsockopt(serv, 0, UDT_RCVBUF, &udt_buff, sizeof(int));
     UDT::setsockopt(serv, 0, UDP_RCVBUF, &udp_buff, sizeof(int));
 
+    // printf("Binding to %s\n", inet_ntoa(sin.sin_addr));
     
     if (args->verbose)
-	fprintf(stderr, "[server] Binding socket...\n");
+    	fprintf(stderr, "[server] Binding socket...\n");
 
+    int r;
 
-    if (UDT::ERROR == UDT::bind(serv, res->ai_addr, res->ai_addrlen)) {
-	cerr << "bind: " << UDT::getlasterror().getErrorMessage() << endl;
-	return 1;
+    if (specify_ip){ 
+	r = UDT::bind(serv, (struct sockaddr *)&my_addr, sizeof(struct sockaddr));
+    } else {
+	r = UDT::bind(serv, res->ai_addr, res->ai_addrlen);
     }
+
+    if (UDT::ERROR == r){
+    	cerr << "bind: " << UDT::getlasterror().getErrorMessage() << endl;
+    	return 1;
+    }
+
 
     if (UDT::ERROR == UDT::listen(serv, 10)){
 	cerr << "listen: " << UDT::getlasterror().getErrorMessage() << endl;
 	return 1;
     }
+
+
 
     sockaddr_storage clientaddr;
     int addrlen = sizeof(clientaddr);

@@ -38,12 +38,11 @@ void usage(){
     fprintf(stderr, "\t-f path \t\tturn on encryption, path=path to key file\n");
     fprintf(stderr, "\t-v verbose\n");
     fprintf(stderr, "\t-t timeout\t\tforce udpipe to timeout if no data transfered\n");
-
-
     exit(1);
 }
 
 void initialize_thread_args(thread_args *args){
+    args->listen_ip = NULL;
     args->ip = NULL;
     args->port = NULL;
     args->blast = 0;
@@ -72,9 +71,13 @@ int main(int argc, char *argv[]){
     int n_crypto_threads = 1;
 
     // ----------- [ Read in options
-    while ((opt = getopt (argc, argv, "t:hvsn:lp:f:")) != -1){
+    while ((opt = getopt (argc, argv, "i:t:hvsn:lp:f:")) != -1){
 	switch (opt){
-	    
+
+	case 'i':
+	    args.listen_ip = optarg;
+	    break; 	    
+
 	case 's':
 	    args.print_speed = 1;
 	    break; 
@@ -161,6 +164,9 @@ int main(int argc, char *argv[]){
 	    cerr << "error: Please specify server host." << endl;
 	    exit(1);
 	}
+    if (args.verbose)
+	fprintf(stderr, "Attempting connection to %s\n", args.ip);
+
     }
 
     if (args.verbose)
@@ -196,7 +202,7 @@ int main(int argc, char *argv[]){
     if (key)
 	memset(key, 0, strlen(key));
 
-    // ----------- [ Spawn correct process
+    // Spawn correct process
     if (operation == SERVER){
 	run_server(&args);
 

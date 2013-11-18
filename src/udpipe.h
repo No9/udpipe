@@ -44,6 +44,7 @@ typedef struct rs_args{
 typedef struct thread_args{
     crypto *enc;
     crypto *dec;
+    char *listen_ip;
     char *ip;
     char *port;
     int blast;
