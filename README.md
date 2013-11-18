@@ -44,6 +44,7 @@ Client side:
      -f path			        turn on encryption, path=path to key file
      -v							verbose
      -t timeout					force udpipe to timeout if no data transfered
+     -i local_ip                server only: specify which local ip to bind the server to 
 
 ### Basic exmple (unencrypted)
 
