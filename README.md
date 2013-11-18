@@ -60,12 +60,12 @@ Server side:
 
 Client side:
 
-       up -n 4 -p PASSword localhost 9000 < source/file
+       up -n 4 -p key localhost 9000 < source/file
 
 Server side:
 
-       up -n 4 -f file/contains/PASSword -l 9000 > output/file
+       up -n 4 -f file/contains/key -l 9000 > output/file
 
-This examples creates a connection to trasfer "source/file" to "output/file" over an encrypted stream on port 9000 which uses 4 threads to encrypt/decrypt each block.  The password used as a key for OpenSSL is "PASSword"
+This examples creates a connection to trasfer "source/file" to "output/file" over an encrypted stream on port 9000 which uses 4 threads to encrypt/decrypt each block with a specified key.
 
 
