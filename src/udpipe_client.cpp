@@ -25,6 +25,7 @@ and limitations under the License.
 #include <stdio.h>
 #include <errno.h>
 #include <time.h>
+#include <signal.h>
 
 #include "udpipe.h"
 #include "udpipe_client.h"
@@ -118,10 +119,8 @@ int run_client(thread_args *args)
     pthread_create(&rcvthread, NULL, recvdata, &rcvargs);
     pthread_detach(rcvthread);
 
-
     if (args->verbose)
 	fprintf(stderr, "[client] Creating send thread...\n");
-
 
     rs_args send_args;
     send_args.usocket = new UDTSOCKET(client);
@@ -149,11 +148,11 @@ int run_client(thread_args *args)
 
     pthread_create(&sndthread, NULL, senddata, &send_args);
 
-
     void * retval;
     pthread_join(sndthread, &retval);
-    
-    UDT::cleanup();
+
+    // Partial cause of segfault issue commented out for now
+    // UDT::cleanup();
 
     return 0;
 }

@@ -76,7 +76,7 @@ void *monitor_timeout(void* arg) {
 
 
 
-void send_full(UDTSOCKET sock, char* buffer, int len){
+void send_full(UDTSOCKET sock, char* buffer, int len){  
     
     int sent = 0;
     int rs = 0;
@@ -107,6 +107,7 @@ void recv_full(UDTSOCKET sock, char* buffer, int len)
 		    "send_full: Unable to send data." << endl;
 	    exit(1);    
 	}
+	timeout_sem = 1;
 	recvd += rs;
     }
     
@@ -246,7 +247,7 @@ void* recvdata(void * _args)
 		crypto_cursor = 0;
 
 	    }	
-	
+	    
 	    rs = UDT::recv(recver, indata+buffer_cursor, 
 			   block_size-buffer_cursor, 0);
 
@@ -307,6 +308,8 @@ void* recvdata(void * _args)
 		}
 		exit(0);
 	    }
+
+	    timeout_sem = 1;	
 
 	    write(fileno(stdout), indata, rs);	
 	    
@@ -379,7 +382,7 @@ void* senddata(void* _args)
 	    if(bytes_read == 0) {
 		sleep(1);
 		UDT::close(client);
-		exit(0);
+		return NULL;
 	    }
 	
 	    if(args->use_crypto){
@@ -423,14 +426,23 @@ void* senddata(void* _args)
     } else {
 	
 	while (1) {
+
 	    bytes_read = read(fileno(stdin), outdata, BUFF_SIZE);
 	    int ssize = 0;
 	    int ss;
 
 	    if(bytes_read == 0) {
-		UDT::close(client);
-		sleep(1);
-		exit(0);
+
+	      // fprintf(stderr, "Transfer complete\n");
+	      
+	      // sleep (1);
+
+	      //UDT::close(client);
+	      //UDT::close(*args->usocket);
+
+	      return NULL;
+
+	      //exit(0);
 	    }
 
 
@@ -449,7 +461,7 @@ void* senddata(void* _args)
 	}	
     }
 
-    UDT::close(client);
+    sleep(1);
 
     return NULL;
 }
