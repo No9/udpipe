@@ -435,22 +435,20 @@ void* senddata(void* _args)
 	
 	while (1) {
 
-	    bytes_read = read(fileno(stdin), outdata, BUFF_SIZE);
 	    int ssize = 0;
 	    int ss;
 
+	    bytes_read = read(fileno(stdin), outdata, BUFF_SIZE);
+
+            if (bytes_read < 0){
+                fprintf(stderr, "[udpipe_threads] unable to read from stdin\n");
+                exit(1);
+            }
+
 	    if(bytes_read == 0) {
-
-	      // fprintf(stderr, "Transfer complete\n");
-	      
-	      // sleep (1);
-
-	      //UDT::close(client);
-	      //UDT::close(*args->usocket);
 
 	      return NULL;
 
-	      //exit(0);
 	    }
 
 
