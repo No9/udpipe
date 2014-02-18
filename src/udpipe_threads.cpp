@@ -285,7 +285,11 @@ void* recvdata(void * _args)
 
 		join_all_encryption_threads(args->c);
 
-		write(fileno(stdout), indata, block_size);
+		if (write(fileno(stdout), indata, block_size) < 0){
+                    fprintf(stderr, "[udp_threads]: unable to write to stdout\n");
+                    exit(EXIT_FAILURE);
+                }
+                    
 
 		buffer_cursor = 0;
 		crypto_cursor = 0;
@@ -311,7 +315,11 @@ void* recvdata(void * _args)
 
 	    timeout_sem = 1;	
 
-	    write(fileno(stdout), indata, rs);	
+	    if (write(fileno(stdout), indata, rs) < 0){
+                fprintf(stderr, "[udp_threads]: unable to write to stdout\n");
+                exit(EXIT_FAILURE);
+            }
+
 	    
 	}
 	
