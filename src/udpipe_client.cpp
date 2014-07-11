@@ -34,6 +34,8 @@ and limitations under the License.
 #define pris(x) fprintf(stderr,"debug: %s\n",x)
 #define uc_err(x) {fprintf(stderr,"error:%s\n",x);exit(1);}
 
+#define ENOSERVER 1001
+
 using std::cerr;
 using std::endl;
 
@@ -50,7 +52,6 @@ int run_client(thread_args *args)
     int udt_buff = args->udt_buff;
     int udp_buff = args->udp_buff; // 67108864;
     int mss = args->mss;
-
 
     if (args->verbose)
 	fprintf(stderr, "Starting UDT...\n");
@@ -69,39 +70,51 @@ int run_client(thread_args *args)
 	cerr << "incorrect network address.\n" << endl;
 	return 1;
     }
-    
 
     if (args->verbose)
 	fprintf(stderr, "[client] Creating socket...\n");
-
     
     UDTSOCKET client;
-    client = UDT::socket(local->ai_family, local->ai_socktype, local->ai_protocol);
+    bool NOT_CONNECTED = true;
+    int connection_count = 0; 
 
-    // UDT Options
-    if (blast)
-	UDT::setsockopt(client, 0, UDT_CC, new CCCFactory<CUDPBlast>, sizeof(CCCFactory<CUDPBlast>));
-	
-    UDT::setsockopt(client, 0, UDT_MSS, &mss, sizeof(int));
-    UDT::setsockopt(client, 0, UDT_SNDBUF, &udt_buff, sizeof(int));
-    UDT::setsockopt(client, 0, UDP_SNDBUF, &udp_buff, sizeof(int));
-
-    // freeaddrinfo(local);
-
-    if (0 != getaddrinfo(ip, port, &hints, &peer)) {
-	cerr << "incorrect server/peer address. " << ip << ":" << port << endl;
-	return 1;
-    }
-
-    if (args->verbose)
-	fprintf(stderr, "[client] Connecting to server...\n");
+    while (NOT_CONNECTED && connection_count++ < 11){
     
-    if (UDT::ERROR == UDT::connect(client, peer->ai_addr, peer->ai_addrlen)) {
+	client = UDT::socket(local->ai_family, local->ai_socktype, local->ai_protocol);
+
+	// UDT Options
+	if (blast)
+	    UDT::setsockopt(client, 0, UDT_CC, new CCCFactory<CUDPBlast>, 
+			    sizeof(CCCFactory<CUDPBlast>));
 	
-	// cerr << "connect: " << UDT::getlasterror().getErrorCode() << endl;
-	cerr << "connect: " << UDT::getlasterror().getErrorMessage() << endl;
-	    
-	return 1;
+	UDT::setsockopt(client, 0, UDT_MSS, &mss, sizeof(int));
+	UDT::setsockopt(client, 0, UDT_SNDBUF, &udt_buff, sizeof(int));
+	UDT::setsockopt(client, 0, UDP_SNDBUF, &udp_buff, sizeof(int));
+
+	// freeaddrinfo(local);
+
+	if (0 != getaddrinfo(ip, port, &hints, &peer)) {
+	    cerr << "incorrect server/peer address. " << ip << ":" << port << endl;
+	    return 1;
+	}
+
+	if (args->verbose)
+	    fprintf(stderr, "[client] Connecting to server...\n");
+    
+	if (UDT::ERROR == UDT::connect(client, peer->ai_addr, peer->ai_addrlen)) {
+	    // cerr << "connect: " << UDT::getlasterror().getErrorCode() << endl;
+	    cerr << "connect: " << UDT::getlasterror().getErrorMessage() << endl;
+	    // return 1;
+	} else {
+	    NOT_CONNECTED = false;
+	}
+	
+	if (UDT::getlasterror().getErrorCode() != ENOSERVER){
+	    return 1;
+	} else {
+	    cerr << "Reattempting..." << endl;
+	}
+
     }
 
     if (args->verbose)
