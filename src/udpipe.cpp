@@ -29,7 +29,18 @@ and limitations under the License.
 using std::cerr;
 using std::endl;
 
-void usage(){
+
+#ifdef WITHOUT_ENCRYPTION
+void missing_encryption()
+{
+    fprintf(stderr, "This binary has been compiled without encryption.\n");
+    fprintf(stderr, "Please re-make without OPTIONS=-DWITHOUT_ENCRYPTION.\n");
+    exit(1);
+}
+#endif
+
+void usage()
+{
     fprintf(stderr, "usage: udpipe [udpipe options] host port\n");
     fprintf(stderr, "options:\n");
     fprintf(stderr, "\t-l \t\t\tlisten for connection\n");
@@ -65,12 +76,15 @@ int main(int argc, char *argv[]){
 
     thread_args args;
     initialize_thread_args(&args);
+
+#ifndef WITHOUT_ENCRYPTION
     int use_crypto = 0;
     char* path_to_key = NULL;
     char* key = NULL;
     int n_crypto_threads = 1;
+#endif
 
-    // ----------- [ Read in options
+    // Read in options
     while ((opt = getopt (argc, argv, "i:t:hvsn:lp:f:")) != -1){
 	switch (opt){
 
@@ -95,22 +109,34 @@ int main(int argc, char *argv[]){
 	    break;
 
 	case 'n':
+#ifdef WITHOUT_ENCRYPTION
+	    missing_encryption();
+#else
 	    args.use_crypto = 1;
 	    use_crypto  = 1; 
 	    n_crypto_threads = atoi(optarg);
 	    break;
+#endif
 
 	case 'p':
+#ifdef WITHOUT_ENCRYPTION
+	    missing_encryption();
+#else
 	    args.use_crypto = 1;
 	    use_crypto = 1;
 	    key = strdup(optarg);
+#endif
 	    break;
 
 	case 'f':
+#ifdef WITHOUT_ENCRYPTION
+	    missing_encryption();
+#else
 	    args.use_crypto = 1;
 	    use_crypto = 1;
 	    path_to_key = strdup(optarg);
 	    break;
+#endif
 
 	case 'h':
 	    usage();
@@ -124,6 +150,7 @@ int main(int argc, char *argv[]){
 	}
     }
 
+#ifndef WITHOUT_ENCRYPTION
     if (use_crypto && (path_to_key && key)){
 	fprintf(stderr, "error: Please specify either key or key file, not both.\n");
 	exit(1);
@@ -144,10 +171,6 @@ int main(int argc, char *argv[]){
 	
     }
 
-    // if (!use_crypto && key){
-    // 	fprintf(stderr, "warning: You've specified a key, but you don't have encryption turned on.\nProceeding without encryption.\n");
-    // }    
-
     if (use_crypto && !key){
 	fprintf(stderr, "Please either: \n (1) %s\n (2) %s\n (3) %s\n",
 		"include key in cli [-p key]",
@@ -155,6 +178,7 @@ int main(int argc, char *argv[]){
 		"choose not to use encryption, remove [-n]");
 	exit(1);
     }
+#endif
 
     // Setup host
     if (operation == CLIENT){
@@ -181,6 +205,7 @@ int main(int argc, char *argv[]){
 	exit(1);
     }
 
+#ifndef WITHOUT_ENCRYPTION
     // Initialize crypto
     if (use_crypto){
 
@@ -201,6 +226,7 @@ int main(int argc, char *argv[]){
 
     if (key)
 	memset(key, 0, strlen(key));
+#endif
 
     // Spawn correct process
     if (operation == SERVER){

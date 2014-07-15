@@ -34,7 +34,9 @@ and limitations under the License.
 
 typedef struct rs_args{
     UDTSOCKET*usocket;
+#ifndef WITHOUT_ENCRYPTION
     crypto *c;
+#endif
     int use_crypto;
     int verbose;
     int n_crypto_threads; 
@@ -42,8 +44,10 @@ typedef struct rs_args{
 } rs_args;
 
 typedef struct thread_args{
+#ifndef WITHOUT_ENCRYPTION
     crypto *enc;
     crypto *dec;
+#endif
     char *listen_ip;
     char *ip;
     char *port;

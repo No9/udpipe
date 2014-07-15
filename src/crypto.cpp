@@ -1,3 +1,5 @@
+#ifndef WITHOUT_ENCRYPTION
+
 #include <openssl/evp.h>
 #include <openssl/crypto.h>
 
@@ -241,3 +243,4 @@ int pass_to_enc_thread(char* in, char*out, int len, crypto*c){
     return 0;
 }
 
+#endif

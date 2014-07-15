@@ -126,7 +126,9 @@ int run_client(thread_args *args)
     rcvargs.use_crypto = args->use_crypto;
     rcvargs.verbose = args->verbose;
     rcvargs.n_crypto_threads = args->n_crypto_threads;
+#ifndef WITHOUT_ENCRYPTION
     rcvargs.c = args->dec;
+#endif
     rcvargs.timeout = args->timeout;
 
     pthread_create(&rcvthread, NULL, recvdata, &rcvargs);
@@ -140,7 +142,9 @@ int run_client(thread_args *args)
     send_args.use_crypto = args->use_crypto;
     send_args.verbose = args->verbose;
     send_args.n_crypto_threads = args->n_crypto_threads;
+#ifndef WITHOUT_ENCRYPTION
     send_args.c = args->enc;
+#endif
     send_args.timeout = args->timeout;
 
     // freeaddrinfo(peer);

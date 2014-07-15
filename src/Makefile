@@ -9,6 +9,7 @@ ifndef arch
 endif
 
 CCFLAGS = -Wall -D$(os) -I../udt/src -finline-functions -g -lcrypto -D_LARGE_FILE_SOURCE=1
+OPTIONS = 
 
 ifeq ($(arch), IA32)
    CCFLAGS += -DIA32 #-mcpu=pentiumpro -march=pentiumpro -mmmx -msse
@@ -44,7 +45,7 @@ APPOUT = up
 all: $(APP) udpipe
 
 %.o: %.cpp 
-	$(C++) $(CCFLAGS) $< -c
+	$(C++) $(CCFLAGS) $(OPTIONS) $< -c
 
 udpipe: udpipe.o udpipe_threads.o udpipe_server.o udpipe_client.o crypto.o
 	$(C++) $^ -o $(APPOUT) $(LDFLAGS)

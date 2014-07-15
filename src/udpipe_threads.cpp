@@ -15,6 +15,11 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions
 and limitations under the License.
 *****************************************************************************/
+#ifndef _GNU_SOURCE             
+#define _GNU_SOURCE             
+#endif
+
+#include <pthread.h>
 #include <unistd.h>
 #include <cstdlib>
 #include <cstring>
@@ -33,9 +38,11 @@ and limitations under the License.
 #define prisi(x,y) fprintf(stderr,"%s: %d\n",x,y)
 #define uc_err(x) {fprintf(stderr,"error:%s\n",x);exit(EXIT_FAILURE);}
 
+
 const int ECONNLOST = 2001;
 
 using std::cerr;
+using std::cout;
 using std::endl;
 
 int READ_IN = 0;
@@ -117,7 +124,7 @@ void recv_full(UDTSOCKET sock, char* buffer, int len)
 const int KEY_LEN = 1026;
 int signed_auth;
 
-
+#ifndef WITHOUT_ENCRYPTION
 void auth_peer(rs_args* args)
 {
 
@@ -131,7 +138,8 @@ void auth_peer(rs_args* args)
 
     send_full(*args->usocket, key, KEY_LEN);
 
-    while (!signed_auth);
+    while (!signed_auth)
+	pthread_yield();
 
     recv_full(*args->usocket, signed_key, KEY_LEN);
 
@@ -155,7 +163,6 @@ void auth_peer(rs_args* args)
 
 }
 
-
 void sign_auth(rs_args* args)
 {
     
@@ -175,7 +182,7 @@ void sign_auth(rs_args* args)
     signed_auth = 1;
 
 }
-
+#endif
 
 void* recvdata(void * _args)
 {
@@ -189,11 +196,12 @@ void* recvdata(void * _args)
 	fprintf(stderr, "[recv thread] Receive encryption is on.\n");
 
     UDTSOCKET recver = *args->usocket;
+    char* indata = (char*) malloc(BUFF_SIZE*sizeof(char));
 
+#ifndef WITHOUT_ENCRYPTION
     int crypto_buff_len = BUFF_SIZE / args->n_crypto_threads;
     int buffer_cursor;
 
-    char* indata = (char*) malloc(BUFF_SIZE*sizeof(char));
     if (!indata){
 	fprintf(stderr, "Unable to allocate decryption buffer");
 	exit(EXIT_FAILURE);
@@ -201,6 +209,13 @@ void* recvdata(void * _args)
 
     if (args->use_crypto)
 	auth_peer(args);
+
+    int new_block = 1;
+    int block_size = 0;
+    int offset = sizeof(int)/sizeof(char);
+    int crypto_cursor;
+
+#endif
 
     timeout_sem = 2;
     // Create a monitor thread to watch for timeouts
@@ -210,13 +225,7 @@ void* recvdata(void * _args)
 
     }
 
-
     READ_IN = 1;
-
-    int new_block = 1;
-    int block_size = 0;
-    int offset = sizeof(int)/sizeof(char);
-    int crypto_cursor;
 
     if (args->verbose)
 	fprintf(stderr, "[recv thread] Listening on receive thread.\n");
@@ -225,6 +234,7 @@ void* recvdata(void * _args)
     if (args->timeout)
 	timeout_sem = 1;
 
+#ifndef WITHOUT_ENCRYPTION
     if(args->use_crypto) {
 	while(true) {
 	    int rs;
@@ -298,7 +308,10 @@ void* recvdata(void * _args)
 	    } 
 	}
 
-    } else { 
+    } 
+    else 
+#endif
+	{ 
 
 	int rs;
 	while (1){
@@ -341,39 +354,30 @@ void* senddata(void* _args)
 
     UDTSOCKET client = *(UDTSOCKET*)args->usocket;
 
+#ifndef WITHOUT_ENCRYPTION
     if (args->verbose && args->use_crypto)
 	fprintf(stderr, "[send thread] Send encryption is on.\n");
 
-    char* outdata = (char*)malloc(BUFF_SIZE*sizeof(char));
     int crypto_buff_len = BUFF_SIZE / args->n_crypto_threads;
-    
     int	offset = sizeof(int)/sizeof(char);
-    int bytes_read;
 
     if (args->verbose)
 	fprintf(stderr, "[send thread] Sending encryption status...\n");
 
     if (args->use_crypto)
 	sign_auth(args);
+#endif
 
-    // long local_openssl_version;
-    // if (args->use_crypto)
-    // 	local_openssl_version = OPENSSL_VERSION_NUMBER;
-    // else
-    // 	local_openssl_version = 0;
-
-
-    // if (UDT::send(client, (char*)&local_openssl_version, sizeof(long), 0) < 0){
-    // 	    // cerr << "send:" << UDT::getlasterror().getErrorMessage() << endl;
-    // 	    // UDT::close(client);
-    // 	    // exit(1);
-    // }
-
-    while (!READ_IN);
+    char* outdata = (char*)malloc(BUFF_SIZE*sizeof(char));
+    int bytes_read;
+   
+    while (!READ_IN)
+	pthread_yield();
 	
     if (args->verbose)
 	fprintf(stderr, "[send thread] Send thread listening on stdin.\n");
 
+#ifndef WITHOUT_ENCRYPTION
     if (args->use_crypto){
 
 	while(true) {
@@ -431,7 +435,9 @@ void* senddata(void* _args)
 
 	}
 
-    } else {
+    } else 
+#endif // end of WITHOUT_ENCRYPTION preproc
+	{
 	
 	while (1) {
 
