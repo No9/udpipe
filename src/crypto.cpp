@@ -95,7 +95,6 @@ static long unsigned int threadid_func()
 
 int THREAD_setup(void)
 {
-    
     pris("Setting up threads");
     mutex_buf = (MUTEX_TYPE*)malloc(CRYPTO_num_locks()*sizeof(MUTEX_TYPE));
   

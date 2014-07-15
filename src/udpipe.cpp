@@ -185,6 +185,7 @@ int main(int argc, char *argv[]){
 	    args.ip = strdup(argv[optind++]);
 	} else {
 	    cerr << "error: Please specify server host." << endl;
+	    usage();
 	    exit(1);
 	}
     if (args.verbose)
@@ -201,6 +202,7 @@ int main(int argc, char *argv[]){
 	args.port = strdup(argv[optind++]);
     } else {
 	cerr << "error: Please specify port num." << endl;
+	usage();
 	exit(1);
     }
 

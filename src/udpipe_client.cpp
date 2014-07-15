@@ -102,19 +102,16 @@ int run_client(thread_args *args)
 	    fprintf(stderr, "[client] Connecting to server...\n");
     
 	if (UDT::ERROR == UDT::connect(client, peer->ai_addr, peer->ai_addrlen)) {
-	    // cerr << "connect: " << UDT::getlasterror().getErrorCode() << endl;
 	    cerr << "connect: " << UDT::getlasterror().getErrorMessage() << endl;
-	    // return 1;
+	    if (UDT::getlasterror().getErrorCode() != ENOSERVER){
+		return 1;
+	    } else {
+		cerr << "Reattempting..." << endl;
+	    }
+
 	} else {
 	    NOT_CONNECTED = false;
 	}
-	
-	if (UDT::getlasterror().getErrorCode() != ENOSERVER){
-	    return 1;
-	} else {
-	    cerr << "Reattempting..." << endl;
-	}
-
     }
 
     if (args->verbose)
@@ -168,7 +165,7 @@ int run_client(thread_args *args)
     void * retval;
     pthread_join(sndthread, &retval);
 
-    // Partial cause of segfault issue commented out for now
+
     // UDT::cleanup();
 
     return 0;
