@@ -165,7 +165,6 @@ int run_client(thread_args *args)
     void * retval;
     pthread_join(sndthread, &retval);
 
-
     // UDT::cleanup();
 
     return 0;

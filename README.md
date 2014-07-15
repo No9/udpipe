@@ -22,6 +22,13 @@ OpenSSL (libssl and libcrypto)
 
 udpipe has only been tested for Linux.
 
+TO MAKE WITHOUT ENCRYPTION
+------- 
+    make OPTIONS=-DWITHOUT_ENCRYPTION
+
+Currently versions >= 1.0 are supported by udpipe. Backwards
+compatibility with OpenSSL versions <= 1.0 is included, but untested.
+
 
 USAGE
 ------
