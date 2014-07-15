@@ -20,6 +20,15 @@
 
 #define pris(x)            if (DEBUG)fprintf(stderr,"[crypto] %s\n",x)   
 
+#define OPENSSL_THREAD_DEFINES
+#include <openssl/opensslconf.h>
+#if !defined(OPENSSL_THREADS)
+#warning Internal threads not supported in this OpenSSL version.
+#warning Compiling with threads. Use encryption at your own risk.
+#warning Update your OpenSSL!
+#endif
+
+ // concurency locks
 #define MUTEX_TYPE	   pthread_mutex_t
 #define MUTEX_SETUP(x)	   pthread_mutex_init(&(x), NULL)
 #define MUTEX_CLEANUP(x)   pthread_mutex_destroy(&x) 
@@ -27,7 +36,18 @@
 #define MUTEX_UNLOCK(x)	   pthread_mutex_unlock(&x)
 #define THREAD_ID	   pthread_self()
 
+// OpenSSL callbacks
+#ifndef LEGACY_OPENSSL
+#define SSL_ID_CALLBACK(x) CRYPTO_THREADID_set_callback(x) 
+#else
+#define SSL_ID_CALLBACK(x) CRYPTO_set_id_callback(x)
+#endif
+
 #define AES_BLOCK_SIZE 8
+
+#ifdef LEGACY_OPENSSL
+#warning using legacy openssl
+#endif
 
 static MUTEX_TYPE *mutex_buf = NULL;
 static void locking_function(int mode, int n, const char*file, int line);
@@ -61,12 +81,17 @@ static void locking_function(int mode, int n, const char*file, int line)
 }
 
 // Returns the thread ID
+#ifndef LEGACY_OPENSSL
 static void threadid_func(CRYPTO_THREADID * id)
 {
-    // fprintf(stderr, "[debug] %s\n", "Passing thread ID");
     CRYPTO_THREADID_set_numeric(id, THREAD_ID);
 }
-
+#else
+static long unsigned int threadid_func()
+{
+    return THREAD_ID;
+}
+#endif
 
 int THREAD_setup(void)
 {
@@ -81,8 +106,7 @@ int THREAD_setup(void)
     for (i = 0; i < CRYPTO_num_locks(); i++)
 	MUTEX_SETUP(mutex_buf[i]);
 
-    // CRYPTO_set_id_callback(threadid_func);
-    CRYPTO_THREADID_set_callback(threadid_func);
+    SSL_ID_CALLBACK(threadid_func);
     CRYPTO_set_locking_callback(locking_function);
 
     pris("Locking and callback functions set");
@@ -98,7 +122,7 @@ int THREAD_cleanup(void)
 	return 0;
 
     /* CRYPTO_set_id_callback(NULL); */
-    CRYPTO_THREADID_set_callback(NULL);
+    SSL_ID_CALLBACK(NULL);
     CRYPTO_set_locking_callback(NULL);
 
     int i;

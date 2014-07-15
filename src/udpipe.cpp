@@ -29,7 +29,6 @@ and limitations under the License.
 using std::cerr;
 using std::endl;
 
-
 #ifdef WITHOUT_ENCRYPTION
 void missing_encryption()
 {

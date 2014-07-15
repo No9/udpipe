@@ -81,8 +81,6 @@ void *monitor_timeout(void* arg) {
     }
 }
 
-
-
 void send_full(UDTSOCKET sock, char* buffer, int len){  
     
     int sent = 0;

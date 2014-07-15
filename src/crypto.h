@@ -39,6 +39,20 @@ and limitations under the License.
 #include <unistd.h>
 #include <semaphore.h>
 
+
+
+#ifndef OPENSSL_VERSION_NUMBER
+#warning "Unknown OpenSSL Version number.  Is OpenSSL installed?"
+#endif
+
+#if !(OPENSSL_VERSION_NUMBER & 0xFF0000000)
+#warning Found OpenSSL version <= 1.0.
+#warning Proceeding with legacy compatibility
+#warning Upgrade your OpenSSL!
+#define LEGACY_OPENSSL
+#endif
+
+
 #define MUTEX_TYPE		pthread_mutex_t
 #define MUTEX_SETUP(x)		pthread_mutex_init(&(x), NULL)
 #define MUTEX_CLEANUP(x)	pthread_mutex_destroy(&x) 
