@@ -50,7 +50,7 @@ void initialize_thread_args(thread_args *args){
     args->blast_rate = 1000;
     args->udt_buff = BUFF_SIZE;
     args->udp_buff = BUFF_SIZE;
-    args->mss = 1500;		// 8400;
+    args->mss = 8400;		// 1500
     args->use_crypto = 0;
     args->verbose = 0;
     args->n_crypto_threads = 1;
