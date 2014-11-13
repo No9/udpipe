@@ -36,6 +36,7 @@ void usage(){
     fprintf(stderr, "\t-n n_crypto_threads \tset number of encryption threads per send/recv thread to n_crypto_threads\n");
     fprintf(stderr, "\t-p key \t\t\tturn on encryption and specify key in-line\n");
     fprintf(stderr, "\t-f path \t\tturn on encryption, path=path to key file\n");
+    fprintf(stderr, "\t-m packet_size \t\tsets the maximum packet size (defaults to 1500)\n");
     fprintf(stderr, "\t-v verbose\n");
     fprintf(stderr, "\t-t timeout\t\tforce udpipe to timeout if no data transfered\n");
     exit(1);
@@ -49,7 +50,7 @@ void initialize_thread_args(thread_args *args){
     args->blast_rate = 1000;
     args->udt_buff = BUFF_SIZE;
     args->udp_buff = BUFF_SIZE;
-    args->mss = 8400;
+    args->mss = 1500;		// 8400;
     args->use_crypto = 0;
     args->verbose = 0;
     args->n_crypto_threads = 1;
@@ -71,7 +72,7 @@ int main(int argc, char *argv[]){
     int n_crypto_threads = 1;
 
     // ----------- [ Read in options
-    while ((opt = getopt (argc, argv, "i:t:hvsn:lp:f:")) != -1){
+    while ((opt = getopt (argc, argv, "i:t:m:hvsn:lp:f:")) != -1){
 	switch (opt){
 
 	case 'i':
@@ -84,6 +85,10 @@ int main(int argc, char *argv[]){
 
 	case 't':
 	    args.timeout = atoi(optarg);
+	    break; 
+
+	case 'm':
+	    args.mss = atoi(optarg);
 	    break; 
 
 	case 'l':

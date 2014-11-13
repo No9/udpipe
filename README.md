@@ -43,6 +43,7 @@ Client side:
      -p key				    	turn on encryption and specify key in-line
      -f path			        turn on encryption, path=path to key file
      -v							verbose
+     -m packet_size             sets the max packet size (defaults to 1500)
      -t timeout					force udpipe to timeout if no data transfered
      -i local_ip                server only: specify which local ip to bind the server to 
 

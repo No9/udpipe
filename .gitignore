@@ -1,0 +1,12 @@
+*.dat
+*.log
+src/up
+udt/src/udt
+udt/src/libudt.a
+udt/src/libudt.so
+*.o
+src/*.o
+*.d
+*.map
+*.yml
+*~
