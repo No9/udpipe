@@ -1,4 +1,5 @@
 import os
+import array
 from ctypes import cdll
 lib = cdll.LoadLibrary('ludpipe.so')
 import io
@@ -60,13 +61,21 @@ class udpipeClient(object):
         assert self.pipe_for_writing, "Unable to write to client. No pipe exists"
         os.write(self.pipe_for_writing, str(msg))
 
+    def set_port(self, port):
+        """
+        Set the host port to which an un-connected client will connect to
+        """
+        
+        port = str(port)
+        lib.udpipeClient_set_port(self.obj, port)
+
+
     def send_file(self, path):
         """
         Write file to pipe into udpipe client
         """
 
-        with open(path, "rb", buffering=self.buffer_size) as f:
-            os.write(self.pipe_for_writing, f.read(self.buffer_size))
+        lib.udpipeClient_send_file(self.obj, path)
 
     def start(self, host = None, port = None):
         """
