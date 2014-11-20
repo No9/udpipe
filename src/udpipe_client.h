@@ -22,5 +22,41 @@ and limitations under the License.
 #include <getopt.h>
 
 
+class udpipeClient
+{
+private:
+    
+    char *ip;
+    char *port;
+    int blast;
+    int blast_rate;
+    int udt_buff;
+    int udp_buff;
+    int mss;
+    int verbose;
+    UDTSOCKET socket, *snd_socket, *rcv_socket;
+    struct addrinfo *local, *peer;    
+    pthread_t rcvthread, sndthread;
+    int timeout;
+    rs_args send_args;
+    rs_args rcvargs;
+
+
+public:
+    
+    /* Constructors */
+    udpipeClient(char *ip, char *port);
+    udpipeClient(char *ip, char *port, int verbose);
+    udpipeClient(char *ip, char *port, int verbose, int blast_rate, int blast, int udt_buff, int udp_buff, int mss);
+         
+    int startUDT();
+    int setup();
+    int connect();
+    int start();
+    int start_send_thread();
+    int start_receive_thread();
+    int set_timeout(int _timeout);
+    
+};
 
 int run_client(thread_args *args);

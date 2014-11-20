@@ -37,27 +37,69 @@ and limitations under the License.
 using std::cerr;
 using std::endl;
 
-int run_client(thread_args *args)
+
+udpipeClient::udpipeClient(char *_ip, 
+                           char *_port) 
 {
+    ip   = strdup(_ip);
+    port = strdup(_port);
 
-    if (args->verbose)
-	fprintf(stderr, "[client] Running client...\n");
+    // defaults
+    blast = 0;
+    blast_rate = 0;
+    udt_buff = 67108864;
+    udp_buff = 67108864;
+    mss = 8000;
+    verbose = 0;
+}
 
-    char *ip = args->ip; 
-    char *port = args->port;
-    int blast = args->blast;
-    int blast_rate = args->blast_rate;
-    int udt_buff = args->udt_buff;
-    int udp_buff = args->udp_buff; // 67108864;
-    int mss = args->mss;
+udpipeClient::udpipeClient(char *_ip, 
+                           char *_port, 
+                           int _verbose) 
+{
+    ip      = strdup(_ip);
+    port    = strdup(_port);
+    verbose = _verbose;
 
+    // defaults
+    blast = 0;
+    blast_rate = 0;
+    udt_buff = 67108864;
+    udp_buff = 67108864;
+    mss = 8000;
+}
 
-    if (args->verbose)
-	fprintf(stderr, "Starting UDT...\n");
+udpipeClient::udpipeClient(char *_ip, 
+                           char *_port, 
+                           int _verbose,
+                           int _blast, 
+                           int _blast_rate, 
+                           int _udt_buff, 
+                           int _udp_buff, 
+                           int _mss)
+{
+    ip         = strdup(_ip);
+    port       = strdup(_port);
+    verbose    = _verbose;
+    blast      = _blast;
+    blast_rate = _blast_rate;
+    udt_buff   = _udt_buff;
+    udp_buff   = _udp_buff; 
+    mss        = _mss;
+}
 
+int udpipeClient::startUDT()
+{
+    if (verbose) fprintf(stderr, "Starting UDT...\n");
     UDT::startup();
+    return 0;
+}
 
-    struct addrinfo hints, *local, *peer;
+int udpipeClient::setup()
+{
+    if (verbose) fprintf(stderr, "[udpipeClient] Creating socket...\n");
+
+    struct addrinfo hints;
 
     memset(&hints, 0, sizeof(struct addrinfo));
 
@@ -66,93 +108,142 @@ int run_client(thread_args *args)
     hints.ai_socktype = SOCK_STREAM;
 
     if (0 != getaddrinfo(NULL, port, &hints, &local)){
-	cerr << "incorrect network address.\n" << endl;
-	return 1;
+        cerr << "incorrect network address.\n" << endl;
+        return 1;
     }
     
-
-    if (args->verbose)
-	fprintf(stderr, "[client] Creating socket...\n");
-
-    
-    UDTSOCKET client;
-    client = UDT::socket(local->ai_family, local->ai_socktype, local->ai_protocol);
+    socket = UDT::socket(local->ai_family, local->ai_socktype, local->ai_protocol);
 
     // UDT Options
-    if (blast)
-	UDT::setsockopt(client, 0, UDT_CC, new CCCFactory<CUDPBlast>, sizeof(CCCFactory<CUDPBlast>));
+    if (blast){
+        UDT::setsockopt(socket, 0, 
+                        UDT_CC, 
+                        new CCCFactory<CUDPBlast>, 
+                        sizeof(CCCFactory<CUDPBlast>));
+    }
 	
-    UDT::setsockopt(client, 0, UDT_MSS, &mss, sizeof(int));
-    UDT::setsockopt(client, 0, UDT_SNDBUF, &udt_buff, sizeof(int));
-    UDT::setsockopt(client, 0, UDP_SNDBUF, &udp_buff, sizeof(int));
-
+    UDT::setsockopt(socket, 0, UDT_MSS, &mss, sizeof(int));
+    UDT::setsockopt(socket, 0, UDT_SNDBUF, &udt_buff, sizeof(int));
+    UDT::setsockopt(socket, 0, UDP_SNDBUF, &udp_buff, sizeof(int));
     // freeaddrinfo(local);
 
     if (0 != getaddrinfo(ip, port, &hints, &peer)) {
-	cerr << "incorrect server/peer address. " << ip << ":" << port << endl;
-	return 1;
+        cerr << "incorrect server/peer address. " << ip << ":" << port << endl;
+        return 1;
     }
+    return 1;
+}
 
-    if (args->verbose)
-	fprintf(stderr, "[client] Connecting to server...\n");
-    
-    if (UDT::ERROR == UDT::connect(client, peer->ai_addr, peer->ai_addrlen)) {
-	
-	// cerr << "connect: " << UDT::getlasterror().getErrorCode() << endl;
-	cerr << "connect: " << UDT::getlasterror().getErrorMessage() << endl;
-	    
-	return 1;
+int udpipeClient::connect()
+{
+    if (verbose) fprintf(stderr, "[udpipeClient] Connecting to server...\n");
+    if (UDT::ERROR == UDT::connect(socket, peer->ai_addr, peer->ai_addrlen)) {
+        cerr << "connect: " << UDT::getlasterror().getErrorMessage() << endl;
+        return 1;
     }
+    rcv_socket = new UDTSOCKET(socket);
+    snd_socket = new UDTSOCKET(socket);
+    return 0;
+}
 
-    if (args->verbose)
-	fprintf(stderr, "[client] Creating receive thread...\n");
+int udpipeClient::set_timeout(int _timeout)
+{
+    timeout = _timeout;
+    return 0;
+}
 
-    pthread_t rcvthread, sndthread;
-    rs_args rcvargs;
-    rcvargs.usocket = new UDTSOCKET(client);
-    rcvargs.use_crypto = args->use_crypto;
-    rcvargs.verbose = args->verbose;
-    rcvargs.n_crypto_threads = args->n_crypto_threads;
-    rcvargs.c = args->dec;
-    rcvargs.timeout = args->timeout;
+int udpipeClient::start_receive_thread()
+{
+    if (verbose) fprintf(stderr, "[udpipeClient] Creating receive thread...\n");
+
+    rcvargs.usocket = rcv_socket;
+    rcvargs.timeout = timeout;
+    rcvargs.verbose = verbose;
+
+    // encryption parameters
+    rcvargs.use_crypto = 0;
+    rcvargs.n_crypto_threads = 1;
+
+    // rcvargs.use_crypto = args->use_crypto;
+    // rcvargs.n_crypto_threads = args->n_crypto_threads;
+    // rcvargs.c = args->dec;
 
     pthread_create(&rcvthread, NULL, recvdata, &rcvargs);
-    pthread_detach(rcvthread);
 
-    if (args->verbose)
-	fprintf(stderr, "[client] Creating send thread...\n");
+    return 0;
+}
 
-    rs_args send_args;
-    send_args.usocket = new UDTSOCKET(client);
-    send_args.use_crypto = args->use_crypto;
-    send_args.verbose = args->verbose;
-    send_args.n_crypto_threads = args->n_crypto_threads;
-    send_args.c = args->enc;
-    send_args.timeout = args->timeout;
+int udpipeClient::start_send_thread()
+{
+    if (verbose) fprintf(stderr, "[udpipeClient] Creating send thread...\n");
 
-    // freeaddrinfo(peer);
+    send_args.usocket = snd_socket;
+    send_args.verbose = verbose;
+    send_args.timeout = timeout;
 
-    if (blast) {
-	CUDPBlast* cchandle = NULL;
-	int temp;
-	UDT::getsockopt(client, 0, UDT_CC, &cchandle, &temp);
-	if (NULL != cchandle)
-	    cchandle->setRate(blast_rate);
-    }
+    // encryption
+    send_args.use_crypto = 0;
+    send_args.n_crypto_threads = 1;
 
-    if (args->print_speed){
-	pthread_t mon_thread;
-	pthread_create(&mon_thread, NULL, monitor, &client);
-	
-    }
+    // send_args.use_crypto = args->use_crypto;
+    // send_args.n_crypto_threads = args->n_crypto_threads;
+    // send_args.c = args->enc;
 
     pthread_create(&sndthread, NULL, senddata, &send_args);
 
-    void * retval;
-    pthread_join(sndthread, &retval);
+    return 0;
+}
 
-    // Partial cause of segfault issue commented out for now
-    // UDT::cleanup();
+int udpipeClient::start()
+{
+    startUDT();
+    setup();
+    connect();
+    start_receive_thread();
+    start_send_thread();
+    return 0;
+}
+
+int run_client(thread_args *args)
+{
+
+    if (args->verbose)
+	fprintf(stderr, "[udpipeClient] Running client...\n");
+
+    udpipeClient client(args->ip, 
+                        args->port, 
+                        args->verbose,
+                        args->blast, 
+                        args->blast_rate, 
+                        args->udt_buff, 
+                        args->udp_buff, 
+                        args->mss);
+
+    client.start();
+
+    // pthread_detach(rcvthread);
+
+    // if (blast) {
+    //     CUDPBlast* cchandle = NULL;
+    //     int temp;
+    //     UDT::getsockopt(client, 0, UDT_CC, &cchandle, &temp);
+    //     if (NULL != cchandle)
+    //         cchandle->setRate(blast_rate);
+    // }
+
+    // if (args->print_speed){
+    //     pthread_t mon_thread;
+    //     pthread_create(&mon_thread, NULL, monitor, &client);
+	
+    // }
+
+    // void * retval;
+    // pthread_join(sndthread, &retval);
+
+    // // Partial cause of segfault issue commented out for now
+    // // UDT::cleanup();
+
+    sleep(20);
 
     return 0;
 }

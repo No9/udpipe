@@ -46,7 +46,7 @@ void print_bytes(const void *object, size_t size)
     
     fprintf(stderr, "[ ");
     for(i = 0; i < size; i++){
-	fprintf(stderr, "%02x ", ((const unsigned char *) object)[i] & 0xff);
+        fprintf(stderr, "%02x ", ((const unsigned char *) object)[i] & 0xff);
     }
     fprintf(stderr, "]\n");
 }
@@ -58,18 +58,18 @@ void *monitor_timeout(void* arg) {
 
     while (1){
 
-	sleep(timeout);
-	if (timeout_sem == 0){
-	    fprintf(stderr, "Exiting on timeout.\n");
-	    exit(0);
+        sleep(timeout);
+        if (timeout_sem == 0){
+            fprintf(stderr, "Exiting on timeout.\n");
+            exit(0);
 
-	} else {
-	    // continue on as normal
-	}
+        } else {
+            // continue on as normal
+        }
 
-	// If timeout_sem == 2, the connection has not been made -> no timeout next round
-	if (timeout_sem != 2)
-	    timeout_sem = 0;
+        // If timeout_sem == 2, the connection has not been made -> no timeout next round
+        if (timeout_sem != 2)
+            timeout_sem = 0;
 
     }
 }
@@ -81,14 +81,14 @@ void send_full(UDTSOCKET sock, char* buffer, int len){
     int sent = 0;
     int rs = 0;
     while (sent < len){
-	rs = UDT::send(sock, buffer+sent, len-sent, 0);
-	if (UDT::ERROR == rs) {
-	    if (UDT::getlasterror().getErrorCode() != ECONNLOST)
-		cerr << "recv:" << UDT::getlasterror().getErrorMessage() << 
-		    "send_full: Unable to send data." << endl;
-	    exit(1);    
-	}
-	sent += rs;
+        rs = UDT::send(sock, buffer+sent, len-sent, 0);
+        if (UDT::ERROR == rs) {
+            if (UDT::getlasterror().getErrorCode() != ECONNLOST)
+                cerr << "recv:" << UDT::getlasterror().getErrorMessage() << 
+                    "send_full: Unable to send data." << endl;
+            exit(1);    
+        }
+        sent += rs;
     }
     
     
@@ -100,15 +100,15 @@ void recv_full(UDTSOCKET sock, char* buffer, int len)
     int recvd = 0;
     int rs = 0;
     while (recvd < len){
-	rs = UDT::recv(sock, buffer+recvd, len-recvd, 0);
-	if (UDT::ERROR == rs) {
-	    if (UDT::getlasterror().getErrorCode() != ECONNLOST)
-		cerr << "recv:" << UDT::getlasterror().getErrorMessage() << 
-		    "send_full: Unable to send data." << endl;
-	    exit(1);    
-	}
-	timeout_sem = 1;
-	recvd += rs;
+        rs = UDT::recv(sock, buffer+recvd, len-recvd, 0);
+        if (UDT::ERROR == rs) {
+            if (UDT::getlasterror().getErrorCode() != ECONNLOST)
+                cerr << "recv:" << UDT::getlasterror().getErrorMessage() << 
+                    "send_full: Unable to send data." << endl;
+            exit(1);    
+        }
+        timeout_sem = 1;
+        recvd += rs;
     }
     
     
@@ -141,15 +141,15 @@ void auth_peer(rs_args* args)
 
     int crypt_len = KEY_LEN/args->n_crypto_threads;
     for (int i = 0; i < args->n_crypto_threads; i ++)
-	pass_to_enc_thread(signed_key+i*crypt_len, signed_key+i*crypt_len, 
-			   crypt_len, args->c);
+        pass_to_enc_thread(signed_key+i*crypt_len, signed_key+i*crypt_len, 
+                           crypt_len, args->c);
 
     join_all_encryption_threads(args->c);
 
 
     if (memcmp(key, signed_key, KEY_LEN)){
-	fprintf(stderr, "Authorization failed\n");
-	exit(1);
+        fprintf(stderr, "Authorization failed\n");
+        exit(1);
 
     }
 
@@ -165,8 +165,8 @@ void sign_auth(rs_args* args)
 
     int crypt_len = KEY_LEN/args->n_crypto_threads;
     for (int i = 0; i < args->n_crypto_threads; i ++)
-	pass_to_enc_thread(key+i*crypt_len, key+i*crypt_len, 
-			   crypt_len, args->c);
+        pass_to_enc_thread(key+i*crypt_len, key+i*crypt_len, 
+                           crypt_len, args->c);
 
     join_all_encryption_threads(args->c);
 
@@ -183,10 +183,10 @@ void* recvdata(void * _args)
     rs_args * args = (rs_args*)_args;
     
     if (args->verbose)
-	fprintf(stderr, "[recv thread] Initializing receive thread...\n");
+        fprintf(stderr, "[recv thread] Initializing receive thread...\n");
 
     if (args->verbose && args->use_crypto)
-	fprintf(stderr, "[recv thread] Receive encryption is on.\n");
+        fprintf(stderr, "[recv thread] Receive encryption is on.\n");
 
     UDTSOCKET recver = *args->usocket;
 
@@ -195,21 +195,20 @@ void* recvdata(void * _args)
 
     char* indata = (char*) malloc(BUFF_SIZE*sizeof(char));
     if (!indata){
-	fprintf(stderr, "Unable to allocate decryption buffer");
-	exit(EXIT_FAILURE);
+        fprintf(stderr, "Unable to allocate decryption buffer");
+        exit(EXIT_FAILURE);
     }
 
     if (args->use_crypto)
-	auth_peer(args);
+        auth_peer(args);
 
     timeout_sem = 2;
     // Create a monitor thread to watch for timeouts
     if (args->timeout > 0){
-	pthread_t monitor_thread;
-	pthread_create(&monitor_thread, NULL, &monitor_timeout, &args->timeout);
+        pthread_t monitor_thread;
+        pthread_create(&monitor_thread, NULL, &monitor_timeout, &args->timeout);
 
     }
-
 
     READ_IN = 1;
 
@@ -219,109 +218,109 @@ void* recvdata(void * _args)
     int crypto_cursor;
 
     if (args->verbose)
-	fprintf(stderr, "[recv thread] Listening on receive thread.\n");
+        fprintf(stderr, "[recv thread] Listening on receive thread.\n");
 
     // Set monitor thread to expect a timeout
     if (args->timeout)
-	timeout_sem = 1;
+        timeout_sem = 1;
 
     if(args->use_crypto) {
-	while(true) {
-	    int rs;
+        while(true) {
+            int rs;
 
-	    if (new_block){
+            if (new_block){
 
-		block_size = 0;
-		rs = UDT::recv(recver, (char*)&block_size, offset, 0);
+                block_size = 0;
+                rs = UDT::recv(recver, (char*)&block_size, offset, 0);
 
-		if (UDT::ERROR == rs) {
-		    if (UDT::getlasterror().getErrorCode() != ECONNLOST){
-			cerr << "recv:" << UDT::getlasterror().getErrorMessage() << endl;
-			exit(1);			
-		    }
-		    exit(0);
-		}
+                if (UDT::ERROR == rs) {
+                    if (UDT::getlasterror().getErrorCode() != ECONNLOST){
+                        cerr << "recv:" << UDT::getlasterror().getErrorMessage() << endl;
+                        exit(1);			
+                    }
+                    exit(0);
+                }
 
-		new_block = 0;
-		buffer_cursor = 0;
-		crypto_cursor = 0;
+                new_block = 0;
+                buffer_cursor = 0;
+                crypto_cursor = 0;
 
-	    }	
+            }	
 	    
-	    rs = UDT::recv(recver, indata+buffer_cursor, 
-			   block_size-buffer_cursor, 0);
+            rs = UDT::recv(recver, indata+buffer_cursor, 
+                           block_size-buffer_cursor, 0);
 
 
-	    if (UDT::ERROR == rs) {
-		if (UDT::getlasterror().getErrorCode() != ECONNLOST){
-		    cerr << "recv:" << UDT::getlasterror().getErrorMessage() << endl;
-		    exit(1);			
-		}
-		exit(0);
-	    }
+            if (UDT::ERROR == rs) {
+                if (UDT::getlasterror().getErrorCode() != ECONNLOST){
+                    cerr << "recv:" << UDT::getlasterror().getErrorMessage() << endl;
+                    exit(1);			
+                }
+                exit(0);
+            }
 
-	    // Cancel timeout for another args->timeout seconds
-	    if (args->timeout)
-		timeout_sem = 1;
+            // Cancel timeout for another args->timeout seconds
+            if (args->timeout)
+                timeout_sem = 1;
 
-	    buffer_cursor += rs;
+            buffer_cursor += rs;
 
-	    // Decrypt any full encryption buffer sectors
-	    while (crypto_cursor + crypto_buff_len < buffer_cursor){
+            // Decrypt any full encryption buffer sectors
+            while (crypto_cursor + crypto_buff_len < buffer_cursor){
 
-		pass_to_enc_thread(indata+crypto_cursor, indata+crypto_cursor, 
-				   crypto_buff_len, args->c);
-		crypto_cursor += crypto_buff_len;
+                pass_to_enc_thread(indata+crypto_cursor, indata+crypto_cursor, 
+                                   crypto_buff_len, args->c);
+                crypto_cursor += crypto_buff_len;
 
-	    }
+            }
 
-	    // If we received the whole block
-	    if (buffer_cursor == block_size){
+            // If we received the whole block
+            if (buffer_cursor == block_size){
 		
-		int size = buffer_cursor - crypto_cursor;
-		pass_to_enc_thread(indata+crypto_cursor, indata+crypto_cursor, 
-				   size, args->c);
-		crypto_cursor += size;
+                int size = buffer_cursor - crypto_cursor;
+                pass_to_enc_thread(indata+crypto_cursor, indata+crypto_cursor, 
+                                   size, args->c);
+                crypto_cursor += size;
 
-		join_all_encryption_threads(args->c);
+                join_all_encryption_threads(args->c);
 
-		if (write(fileno(stdout), indata, block_size) < 0){
+                if (write(fileno(stdout), indata, block_size) < 0){
                     fprintf(stderr, "[udp_threads]: unable to write to stdout\n");
                     exit(EXIT_FAILURE);
                 }
                     
 
-		buffer_cursor = 0;
-		crypto_cursor = 0;
-		new_block = 1;
+                buffer_cursor = 0;
+                crypto_cursor = 0;
+                new_block = 1;
 	    
-	    } 
-	}
+            } 
+        }
 
     } else { 
 
-	int rs;
-	while (1){
+        int rs;
+        while (1){
 
-	    rs = UDT::recv(recver, indata, BUFF_SIZE, 0);
+            rs = UDT::recv(recver, indata, BUFF_SIZE, 0);
 
-	    if (UDT::ERROR == rs) {
-		if (UDT::getlasterror().getErrorCode() != ECONNLOST){
-		    cerr << "recv:" << UDT::getlasterror().getErrorMessage() << endl;
-		    exit(1);			
-		}
-		exit(0);
-	    }
+            if (UDT::ERROR == rs) {
+                if (UDT::getlasterror().getErrorCode() != ECONNLOST){
+                    cerr << "recv:" << UDT::getlasterror().getErrorMessage() << endl;
+                    exit(1);			
+                }
+                exit(0);
+            }
 
-	    timeout_sem = 1;	
+            timeout_sem = 1;	
 
-	    if (write(fileno(stdout), indata, rs) < 0){
+            if (write(fileno(stdout), indata, rs) < 0){
                 fprintf(stderr, "[udp_threads]: unable to write to stdout\n");
                 exit(EXIT_FAILURE);
             }
 
 	    
-	}
+        }
 	
 
     }
@@ -337,12 +336,12 @@ void* senddata(void* _args)
     rs_args * args = (rs_args*) _args;
     
     if (args->verbose)
-	fprintf(stderr, "[send thread] Initializing send thread...\n");
+        fprintf(stderr, "[send thread] Initializing send thread...\n");
 
     UDTSOCKET client = *(UDTSOCKET*)args->usocket;
 
     if (args->verbose && args->use_crypto)
-	fprintf(stderr, "[send thread] Send encryption is on.\n");
+        fprintf(stderr, "[send thread] Send encryption is on.\n");
 
     char* outdata = (char*)malloc(BUFF_SIZE*sizeof(char));
     int crypto_buff_len = BUFF_SIZE / args->n_crypto_threads;
@@ -351,10 +350,10 @@ void* senddata(void* _args)
     int bytes_read;
 
     if (args->verbose)
-	fprintf(stderr, "[send thread] Sending encryption status...\n");
+        fprintf(stderr, "[send thread] Sending encryption status...\n");
 
     if (args->use_crypto)
-	sign_auth(args);
+        sign_auth(args);
 
     // long local_openssl_version;
     // if (args->use_crypto)
@@ -372,99 +371,97 @@ void* senddata(void* _args)
     while (!READ_IN);
 	
     if (args->verbose)
-	fprintf(stderr, "[send thread] Send thread listening on stdin.\n");
+        fprintf(stderr, "[send thread] Send thread listening on stdin.\n");
 
     if (args->use_crypto){
 
-	while(true) {
-	    int ss;
+        while(true) {
+            int ss;
 
-	    bytes_read = read(fileno(stdin), outdata+offset, BUFF_SIZE);
+            bytes_read = read(fileno(stdin), outdata+offset, BUFF_SIZE);
 	
-	    if(bytes_read < 0){
-		cerr << "send:" << UDT::getlasterror().getErrorMessage() << endl;
-		UDT::close(client);
-		exit(1);
-	    }
+            if(bytes_read < 0){
+                cerr << "send:" << UDT::getlasterror().getErrorMessage() << endl;
+                UDT::close(client);
+                exit(1);
+            }
 
-	    if(bytes_read == 0) {
-		sleep(1);
-		UDT::close(client);
-		return NULL;
-	    }
+            if(bytes_read == 0) {
+                sleep(1);
+                UDT::close(client);
+                return NULL;
+            }
 	
-	    if(args->use_crypto){
+            if(args->use_crypto){
 
-		*((int*)outdata) = bytes_read;
-		int crypto_cursor = 0;
+                *((int*)outdata) = bytes_read;
+                int crypto_cursor = 0;
 
-		while (crypto_cursor < bytes_read){
-		    int size = min(crypto_buff_len, bytes_read-crypto_cursor);
-		    pass_to_enc_thread(outdata+crypto_cursor+offset, 
-				       outdata+crypto_cursor+offset, 
-				       size, args->c);
+                while (crypto_cursor < bytes_read){
+                    int size = min(crypto_buff_len, bytes_read-crypto_cursor);
+                    pass_to_enc_thread(outdata+crypto_cursor+offset, 
+                                       outdata+crypto_cursor+offset, 
+                                       size, args->c);
 		
-		    crypto_cursor += size;
+                    crypto_cursor += size;
 		
-		}
+                }
 	    
-		join_all_encryption_threads(args->c);
+                join_all_encryption_threads(args->c);
 
-		bytes_read += offset;
+                bytes_read += offset;
 
-	    }
+            }
 
-	    int ssize = 0;
-	    while(ssize < bytes_read) {
+            int ssize = 0;
+            while(ssize < bytes_read) {
 	    
-		if (UDT::ERROR == (ss = UDT::send(client, outdata + ssize, 
-						  bytes_read - ssize, 0))) {
+                if (UDT::ERROR == (ss = UDT::send(client, outdata + ssize, 
+                                                  bytes_read - ssize, 0))) {
 
-		    cerr << "send:" << UDT::getlasterror().getErrorMessage() << endl;
-		    return NULL;
-		}
+                    cerr << "send:" << UDT::getlasterror().getErrorMessage() << endl;
+                    return NULL;
+                }
 
-		ssize += ss;
+                ssize += ss;
 
-	    }
+            }
 
 
-	}
+        }
 
     } else {
 	
-	while (1) {
+        while (1) {
 
-	    int ssize = 0;
-	    int ss;
+            int ssize = 0;
+            int ss;
 
-	    bytes_read = read(fileno(stdin), outdata, BUFF_SIZE);
+            bytes_read = read(fileno(stdin), outdata, BUFF_SIZE);
 
             if (bytes_read < 0){
                 fprintf(stderr, "[udpipe_threads] unable to read from stdin\n");
                 exit(1);
             }
 
-	    if(bytes_read == 0) {
-
-	      return NULL;
-
-	    }
+            if(bytes_read == 0) {
+                return NULL;
+            }
 
 
-	    while(ssize < bytes_read) {
+            while(ssize < bytes_read) {
 
-		if (UDT::ERROR == (ss = UDT::send(client, outdata + ssize, 
-						  bytes_read - ssize, 0))) {
-		    cerr << "send:" << UDT::getlasterror().getErrorMessage() << endl;
-		    return NULL;
-		}
+                if (UDT::ERROR == (ss = UDT::send(client, outdata + ssize, 
+                                                  bytes_read - ssize, 0))) {
+                    cerr << "send:" << UDT::getlasterror().getErrorMessage() << endl;
+                    return NULL;
+                }
 
-		ssize += ss;
+                ssize += ss;
 
-	    }
+            }
 
-	}	
+        }	
     }
 
     sleep(1);
@@ -482,20 +479,20 @@ void* monitor(void* s)
     cerr << "Snd(Mb/s)\tRcv(Mb/s)\tRTT(ms)\tLoss\tPktSndPeriod(us)\tRecvACK\tRecvNAK" << endl;
 
     while (true) {
-	sleep(1);
+        sleep(1);
 
-	if (UDT::ERROR == UDT::perfmon(u, &perf)) {
-	    cout << "perfmon: " << UDT::getlasterror().getErrorMessage() << endl;
-	    break;
-	}
+        if (UDT::ERROR == UDT::perfmon(u, &perf)) {
+            cout << "perfmon: " << UDT::getlasterror().getErrorMessage() << endl;
+            break;
+        }
 
-	cerr << perf.mbpsSendRate << "\t\t"
-	     << perf.mbpsRecvRate << "\t\t"
-	     << perf.msRTT << "\t"
-	     << perf.pktRcvLoss << "\t"
-	     << perf.pktRecv << "\t\t\t"
-	     << perf.pktRecvACK << "\t"
-	     << perf.pktRecvNAK << endl;
+        cerr << perf.mbpsSendRate << "\t\t"
+             << perf.mbpsRecvRate << "\t\t"
+             << perf.msRTT << "\t"
+             << perf.pktRcvLoss << "\t"
+             << perf.pktRecv << "\t\t\t"
+             << perf.pktRecvACK << "\t"
+             << perf.pktRecvNAK << endl;
     }
 
     return NULL;
