@@ -8,7 +8,7 @@ ifndef arch
    arch = IA32
 endif
 
-CCFLAGS = -Wall -D$(os) -I../udt/src -finline-functions -g -lcrypto -D_LARGE_FILE_SOURCE=1
+CCFLAGS = -Wall -D$(os) -I../udt/src -finline-functions -g -lcrypto -D_LARGE_FILE_SOURCE=1 -fPIC
 
 ifeq ($(arch), IA32)
    CCFLAGS += -DIA32 #-mcpu=pentiumpro -march=pentiumpro -mmmx -msse
@@ -48,9 +48,11 @@ all: $(APP) udpipe
 
 udpipe: udpipe.o udpipe_threads.o udpipe_server.o udpipe_client.o crypto.o
 	$(C++) $^ -o $(APPOUT) $(LDFLAGS)
+	$(C++) -shared -Wl,-soname,ludpipe.so -o ludpipe.so  udpipe_client.o libudt.so udpipe_threads.o crypto.o
 
 clean:
 	rm -f *.o $(APPOUT) 
 
 install:
 	export PATH=$(DIR):$$PATH
+	export LD_LIBRARY_PATH=$(shell pwd):$$LD_LIBRARY_PATH	

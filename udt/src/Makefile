@@ -46,9 +46,12 @@ else
 endif
 
 libudt.a: $(OBJS)
-	ar -rcs $@ $^
+	ar -rcs -fPIC $@ $^
 
-udt:
+udt: $(OBJS)
+	cp udt.h udt
+
+udt: $(OBJS)
 	cp udt.h udt
 
 clean:
