@@ -284,8 +284,8 @@ void* recvdata(void * _args)
 
                 join_all_encryption_threads(args->c);
 
-                if (write(fileno(stdout), indata, block_size) < 0){
-                    fprintf(stderr, "[udp_threads]: unable to write to stdout\n");
+                if (write(args->pipe_out, indata, block_size) < 0){
+                    fprintf(stderr, "[udp_threads]: unable to write to output pipe\n");
                     exit(EXIT_FAILURE);
                 }
                     
@@ -314,15 +314,12 @@ void* recvdata(void * _args)
 
             timeout_sem = 1;	
 
-            if (write(fileno(stdout), indata, rs) < 0){
-                fprintf(stderr, "[udp_threads]: unable to write to stdout\n");
+            if (write(args->pipe_out, indata, rs) < 0){
+                fprintf(stderr, "[udp_threads]: unable to write to output pipe\n");
                 exit(EXIT_FAILURE);
             }
-
 	    
         }
-	
-
     }
 
     UDT::close(recver);
@@ -371,14 +368,14 @@ void* senddata(void* _args)
     while (!READ_IN);
 	
     if (args->verbose)
-        fprintf(stderr, "[send thread] Send thread listening on stdin.\n");
+        fprintf(stderr, "[send thread] Send thread listening on input pipe.\n");
 
     if (args->use_crypto){
 
         while(true) {
             int ss;
 
-            bytes_read = read(fileno(stdin), outdata+offset, BUFF_SIZE);
+            bytes_read = read(args->pipe_in, outdata+offset, BUFF_SIZE);
 	
             if(bytes_read < 0){
                 cerr << "send:" << UDT::getlasterror().getErrorMessage() << endl;
@@ -437,10 +434,10 @@ void* senddata(void* _args)
             int ssize = 0;
             int ss;
 
-            bytes_read = read(fileno(stdin), outdata, BUFF_SIZE);
+            bytes_read = read(args->pipe_in, outdata, BUFF_SIZE);
 
             if (bytes_read < 0){
-                fprintf(stderr, "[udpipe_threads] unable to read from stdin\n");
+                fprintf(stderr, "[udpipe_threads] unable to read from pipe_in\n");
                 exit(1);
             }
 

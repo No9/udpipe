@@ -39,6 +39,8 @@ typedef struct rs_args{
     int verbose;
     int n_crypto_threads; 
     int timeout;
+    int pipe_in;
+    int pipe_out;
 } rs_args;
 
 typedef struct thread_args{
