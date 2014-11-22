@@ -28,6 +28,7 @@ class udpipeClient(object):
 
         host = str(host)
         lib.udpipeClient_set_host(self.obj, host)
+        return self
 
     def set_port(self, port):
         """
@@ -36,6 +37,7 @@ class udpipeClient(object):
         
         port = str(port)
         lib.udpipeClient_set_port(self.obj, port)
+        return self
 
     def set_pipe_in(self, pipe_in):
         """
@@ -44,6 +46,7 @@ class udpipeClient(object):
 
         assert isinstance(pipe_in, int), "Unable to set pipe_in to non-integer type"
         lib.udpipeClient_set_pipe_in(self.obj, pipe_in)
+        return self
 
     def set_pipe_out(self, pipe_out):
         """
@@ -52,14 +55,17 @@ class udpipeClient(object):
 
         assert isinstance(pipe_out, int), "Unable to set pipe_out to non-integer type"
         lib.udpipeClient_set_pipe_out(self.obj, pipe_out)
+        return self
 
     def write(self, msg):
         """
         Write to pipe into udpipe client
         """
 
-        assert self.pipe_for_writing, "Unable to write to client. No pipe exists"
-        os.write(self.pipe_for_writing, str(msg))
+        pipe_in = lib.udpipeClient_get_pipe_in(self.obj)
+        pipe_out = lib.udpipeClient_get_pipe_out(self.obj)
+        lib.udpipeClient_write_buffer(self.obj, msg, len(msg))
+        return self
 
     def set_port(self, port):
         """
@@ -68,7 +74,7 @@ class udpipeClient(object):
         
         port = str(port)
         lib.udpipeClient_set_port(self.obj, port)
-
+        return self
 
     def send_file(self, path):
         """
@@ -76,28 +82,24 @@ class udpipeClient(object):
         """
 
         lib.udpipeClient_send_file(self.obj, path)
+        return self
 
     def start(self, host = None, port = None):
         """
         Attempt to connect to a host and pipe data.  This command should be followed by a ``join()``
         """
 
-        self.pipe_for_reading, self.pipe_for_writing = os.pipe()
-        print self.pipe_for_reading, self.pipe_for_writing
-        self.set_pipe_in(self.pipe_for_reading)
-
         if host: self.set_host(host)
         if port: self.set_port(port)
 
-        return lib.udpipeClient_start(self.obj)
+        ret = lib.udpipeClient_start(self.obj)
+        return self
 
     def join(self):
         """
         Wait for udpipeClient to join threads after transfer completion
         """
 
-        # if self.pipe_for_writing: os.close(self.pipe_for_writing)
-        # if self.pipe_for_reading: os.close(self.pipe_for_reading)
-
-        return lib.udpipeClient_join(self.obj)
+        ret = lib.udpipeClient_join(self.obj)
+        return self 
 

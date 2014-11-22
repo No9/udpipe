@@ -37,13 +37,14 @@ class udpipeClient
 {
 public:
 
+    int pipe_in[2], pipe_out[2];
+    int *pipe_in_read, *pipe_in_write, *pipe_out_read, *pipe_out_write;
     char *host, *port;
     int blast, blast_rate, udt_buff, udp_buff, mss, verbose, timeout;
     UDTSOCKET socket, *snd_socket, *rcv_socket;
     struct addrinfo *local, *peer;
     pthread_t rcvthread, sndthread;
     rs_args send_args, rcvargs;
-    int pipe_in, pipe_out;
     char *buffer_in;
     
     // Constructors
@@ -64,9 +65,10 @@ public:
     int set_timeout(int _timeout);
     int set_host(char *_host);
     int set_port(char *_port);
-    int set_pipe_in(int _pipe_in);
-    int set_pipe_out(int _pipe_out);
+    int send_from_fd(int fd);
     int send_file(char *path);
+    int write_buffer(char *path, int len);
+    int create_pipes();
 
 };
 
@@ -96,17 +98,26 @@ extern "C" {
         client->set_port(_port);
     }
 
-    void udpipeClient_set_pipe_in(udpipeClient* client, int _pipe_in){ 
-        client->set_pipe_in(_pipe_in);
+    void udpipeClient_send_from_fd(udpipeClient* client, int _fd){ 
+        client->send_from_fd(_fd);
     }
 
-    void udpipeClient_set_pipe_out(udpipeClient* client, int _pipe_out){ 
-        client->set_pipe_out(_pipe_out);
+    void udpipeClient_send_file(udpipeClient* client, char *path){ 
+        client->send_file(path);
     }
 
-    void udpipeClient_send_file(udpipeClient* client, char *_path){ 
-        client->send_file(_path);
+    int udpipeClient_write_buffer(udpipeClient* client, char *buffer, int len){ 
+        return client->write_buffer(buffer, len);
     }
+
+    int udpipeClient_get_pipe_in(udpipeClient* client){ 
+        return *client->pipe_in_write;
+    }
+
+    int udpipeClient_get_pipe_out(udpipeClient* client){ 
+        return *client->pipe_out_read;
+    }
+
 
 }
 
@@ -123,6 +134,7 @@ int udpipeClient::start()
         return -1;
     }
 
+    create_pipes();
     startUDT();
     setup();
     connect();
@@ -132,6 +144,18 @@ int udpipeClient::start()
     return fileno(stdin);
 }
 
+int udpipeClient::create_pipes()
+{
+    pipe(pipe_in);
+    pipe(pipe_out);
+
+    pipe_in_read   = pipe_in;
+    pipe_in_write  = pipe_in + 1;
+    pipe_out_read  = pipe_out;
+    pipe_out_write = pipe_out + 1;
+
+    return 0;
+}
 
 int udpipeClient::join()
 {
@@ -154,24 +178,6 @@ int udpipeClient::set_timeout(int _timeout)
 {
     timeout = _timeout;
     return 0;
-}
-
-
-int udpipeClient::set_pipe_in(int _pipe_in)
-{
-    if (verbose) cout << "Setting pipe_in to: " << _pipe_in << endl;
-    // dup2(_pipe_in, pipe_in);
-    // dup2(pipe_in, _pipe_in);
-    pipe_in = _pipe_in;
-    return pipe_in;
-}
-
-int udpipeClient::set_pipe_out(int _pipe_out)
-{
-    if (verbose) cout << "Settoutg pipe_out to: " << _pipe_out << endl;
-    // dup2(_pipe_out, pipe_out);
-    pipe_out = _pipe_out;
-    return pipe_in;
 }
 
 
@@ -210,8 +216,6 @@ udpipeClient::udpipeClient()
     buffer_in = NULL;
 
     // defaults
-    pipe_in = fileno(stdin);
-    pipe_out = fileno(stdout);
     blast = 0;
     blast_rate = 0;
     udt_buff = 67108864;
@@ -229,8 +233,6 @@ udpipeClient::udpipeClient(char *_ip,
     buffer_in = NULL;
 
     // defaults
-    pipe_in = fileno(stdin);
-    pipe_out = fileno(stdout);
     blast = 0;
     blast_rate = 0;
     udt_buff = 67108864;
@@ -249,8 +251,6 @@ udpipeClient::udpipeClient(char *_ip,
     buffer_in = NULL;
 
     // defaults
-    pipe_in = fileno(stdin);
-    pipe_out = fileno(stdout);
     blast = 0;
     blast_rate = 0;
     udt_buff = 67108864;
@@ -276,8 +276,6 @@ udpipeClient::udpipeClient(char *_ip,
     udt_buff   = _udt_buff;
     udp_buff   = _udp_buff; 
     mss        = _mss;
-    pipe_in = fileno(stdin);
-    pipe_out = fileno(stdout);
 
 }
 
@@ -294,8 +292,8 @@ int udpipeClient::start_send_thread()
     send_args.use_crypto = 0;
     send_args.n_crypto_threads = 1;
 
-    send_args.pipe_in = pipe_in;
-    send_args.pipe_out = pipe_out;
+    send_args.pipe_in = pipe_in[0];
+    send_args.pipe_out = pipe_out[1];
 
     // send_args.use_crypto = args->use_crypto;
     // send_args.n_crypto_threads = args->n_crypto_threads;
@@ -318,8 +316,7 @@ int udpipeClient::start_receive_thread()
     rcvargs.use_crypto = 0;
     rcvargs.n_crypto_threads = 1;
 
-    rcvargs.pipe_in = pipe_in;
-    rcvargs.pipe_out = pipe_out;
+    rcvargs.pipe_out = pipe_out[1];
 
     // rcvargs.use_crypto = args->use_crypto;
     // rcvargs.n_crypto_threads = args->n_crypto_threads;
@@ -387,50 +384,59 @@ int udpipeClient::connect()
     return 0;
 }
 
-int udpipeClient::send_file(char *path){
+int udpipeClient::write_buffer(char *buff, int len)
+{
 
-    if (verbose) cout << "Sending local file: " << path << endl;
-        
+    if (verbose) cout << "write_buffer to pipe: " << *pipe_in_write << endl;
+    int written = write(*pipe_in_write, buff, len);
+    if (verbose) cout << "Wrote: " << written << endl;
+
+    return 0;
+}
+
+
+
+int udpipeClient::send_file(char *path)
+{
     int fd;
-    int ssize = 0;
-    int bytes_read;
 
+    if (verbose) cout << "Opening file: " << path << endl;
+    if ((fd = open(path, O_RDONLY)) < 0){
+        cerr << "Unable to open file: " << errno << endl;
+    }
+    if (verbose) cout << "Opened: " << path << endl;
+
+    send_from_fd(fd);
+    close(fd);
+    return 0;
+}
+
+
+int udpipeClient::send_from_fd(int fd)
+{
+        
     if (!buffer_in) {
         cout << "Creating buffer of size " << udt_buff*sizeof(char) << endl;
         buffer_in = (char*) malloc(udt_buff*sizeof(char));
     }
-
-    if (verbose) cout << "Opening file..." << endl;
-
-    if ((fd = open(path,  O_RDONLY)) == -1) {
-        cerr << "Can't open file for reading: " << strerror (errno) << endl;
-        return 1;
-    }
     
     while (1) {
         
-        ssize = bytes_read = 0;
-
-        if (verbose) cout << "Reading from fd: " << fd << endl;
-        bytes_read = read(fd, buffer_in, udt_buff);
-        if (verbose) cout << "Read from fd: " << bytes_read << endl;
+        int ssize = 0;
+        int bytes_read = read(fd, buffer_in, udt_buff);
 
         if (bytes_read < 0){
-            cerr << "unable to read from file" << endl;
+            cerr << "unable to read from file: " << errno << endl;
             return -1;
         }
 
         if (bytes_read == 0) {
-            if (verbose) cout << "EOF" << endl;
-            return -1;
+            return 0;
         }
 
-        if (verbose) cout << "Writing to pipe: " << pipe_in << endl;
         while (ssize < bytes_read) {        
-            // write(fileno(stdout), buffer_in + ssize, bytes_read - ssize);
-            ssize += write(pipe_in, buffer_in + ssize, bytes_read - ssize);
+            ssize += write(*pipe_in_write, buffer_in + ssize, bytes_read - ssize);
         }
-        if (verbose) cout << "Wrote to pipe: " << bytes_read << endl;
 
     }	
 

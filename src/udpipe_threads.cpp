@@ -138,7 +138,6 @@ void auth_peer(rs_args* args)
     // fprintf(stderr, "key:        "); print_bytes(key, 16);
     // fprintf(stderr, "signed_key: "); print_bytes(signed_key, 16);
 
-
     int crypt_len = KEY_LEN/args->n_crypto_threads;
     for (int i = 0; i < args->n_crypto_threads; i ++)
         pass_to_enc_thread(signed_key+i*crypt_len, signed_key+i*crypt_len, 
@@ -441,15 +440,16 @@ void* senddata(void* _args)
                 exit(1);
             }
 
-            if(bytes_read == 0) {
+            if (bytes_read == 0) {
                 return NULL;
             }
 
 
-            while(ssize < bytes_read) {
+            while (ssize < bytes_read) {
 
-                if (UDT::ERROR == (ss = UDT::send(client, outdata + ssize, 
-                                                  bytes_read - ssize, 0))) {
+                ss = UDT::send(client, outdata + ssize, bytes_read - ssize, 0);
+
+                if (UDT::ERROR == ss) {
                     cerr << "send:" << UDT::getlasterror().getErrorMessage() << endl;
                     return NULL;
                 }
@@ -457,7 +457,6 @@ void* senddata(void* _args)
                 ssize += ss;
 
             }
-
         }	
     }
 
