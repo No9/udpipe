@@ -284,12 +284,11 @@ void* recvdata(void * _args)
 		crypto_cursor += size;
 
 		join_all_encryption_threads(args->c);
-
+               
 		if (write(fileno(stdout), indata, block_size) < 0){
-                    fprintf(stderr, "[udp_threads]: unable to write to stdout\n");
-                    exit(EXIT_FAILURE);
+                   fprintf(stderr, "[udp_threads]: unable to write to stdout\n");
+                   exit(EXIT_FAILURE);
                 }
-                    
 
 		buffer_cursor = 0;
 		crypto_cursor = 0;
@@ -314,13 +313,11 @@ void* recvdata(void * _args)
 	    }
 
 	    timeout_sem = 1;	
-
-	    if (write(fileno(stdout), indata, rs) < 0){
-                fprintf(stderr, "[udp_threads]: unable to write to stdout\n");
-                exit(EXIT_FAILURE);
+            if (write(fileno(stdout), indata, rs) < 0) {
+               fprintf(stderr, "[udp_threads]: unable to write to stdout\n");
+               exit(EXIT_FAILURE);
             }
 
-	    
 	}
 	
 
@@ -378,9 +375,12 @@ void* senddata(void* _args)
 
 	while(true) {
 	    int ss;
-
-	    bytes_read = read(fileno(stdin), outdata+offset, BUFF_SIZE);
-	
+            if(isatty(fileno(stdin))) {
+	       bytes_read = read(fileno(stdin), outdata+offset, BUFF_SIZE);
+            } else {
+               cin.read(outdata, sizeof(outdata));
+               bytes_read = cin.gcount();
+            }
 	    if(bytes_read < 0){
 		cerr << "send:" << UDT::getlasterror().getErrorMessage() << endl;
 		UDT::close(client);
@@ -437,9 +437,12 @@ void* senddata(void* _args)
 
 	    int ssize = 0;
 	    int ss;
-
-	    bytes_read = read(fileno(stdin), outdata, BUFF_SIZE);
-
+            if(isatty(fileno(stdin))) {
+               bytes_read = read(fileno(stdin), outdata+offset, BUFF_SIZE);
+            } else {
+               cin.read(outdata, sizeof(outdata));
+               bytes_read = cin.gcount();
+            }
             if (bytes_read < 0){
                 fprintf(stderr, "[udpipe_threads] unable to read from stdin\n");
                 exit(1);
