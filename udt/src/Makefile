@@ -10,6 +10,10 @@ endif
 
 CCFLAGS = -fPIC -Wall -Wextra -D$(os) -finline-functions -O3 -fno-strict-aliasing -fvisibility=hidden
 
+ifeq ($(debug), 1)
+   CCFLAGS += -g
+endif 
+
 ifeq ($(arch), IA32)
    CCFLAGS += -DIA32
 endif
